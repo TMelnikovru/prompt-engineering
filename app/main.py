@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app import __version__
+from app.api.ingestion import router as ingestion_router
 from app.api.routes import router
 from app.config import Settings
 from app.db.session import Database
@@ -40,6 +41,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.settings = resolved_settings
     application.state.database = None
     application.include_router(router)
+    application.include_router(ingestion_router)
     application.mount("/static", StaticFiles(directory=ROOT / "frontend" / "static"), name="static")
     templates = Jinja2Templates(directory=ROOT / "frontend" / "templates")
 

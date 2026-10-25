@@ -28,6 +28,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Install uv
         run: python -m pip install uv==0.13.5
       - run: uv sync --frozen
@@ -44,7 +47,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: ci-validation-only
         run: |
-          bash -n deploy/prepare.sh deploy/deploy.sh deploy/install-cron.sh
+          bash -n deploy/prepare.sh deploy/deploy.sh deploy/install-cron.sh deploy/sync-wiki.sh
           docker compose config --quiet
 
   deployment:

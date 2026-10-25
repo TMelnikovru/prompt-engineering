@@ -1,0 +1,139 @@
+"""CLI чтения источников и двух этапов ИИ-обработки; секреты только из окружения."""
+
+import argparse
+import asyncio
+import json
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.config import Settings
+from app.db.models import AiArtifact, DocumentVersion, SourceDocument
+from app.db.session import Database
+from app.services.analysis import (
+    PROMPT_VERSION,
+    AiError,
+    analyze_document,
+    extraction_fingerprint,
+    summarize,
+)
+from app.services.ingestion import SyncBusy, sync_wiki
+
+
+def emit(value):
+    print(json.dumps(value, ensure_ascii=False, default=str), flush=True)
+
+
+async def analyze_pending(database: Database, settings: Settings, limit: int) -> dict:
+    async with database.session() as session:
+        rows = (
+            await session.execute(
+                select(SourceDocument.id, DocumentVersion.id, DocumentVersion.content_hash)
+                .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
+                .order_by(SourceDocument.title, SourceDocument.id)
+            )
+        ).all()
+        artifacts = (
+            await session.scalars(
+                select(AiArtifact).where(
+                    AiArtifact.kind == "extraction",
+                    AiArtifact.model == settings.extraction_model,
+                    AiArtifact.prompt_version == PROMPT_VERSION,
+                )
+            )
+        ).all()
+        covered = {artifact.input_fingerprint: set(artifact.inputs) for artifact in artifacts}
+        pending = [
+            doc_id
+            for doc_id, version_id, content_hash in rows
+            if str(version_id)
+            not in covered.get(extraction_fingerprint(doc_id, content_hash, settings), set())
+        ]
+    results = []
+    for doc_id in pending[:limit]:
+        try:
+            result = await analyze_document(database, settings, doc_id)
+            results.append(
+                {k: result[k] for k in ("id", "cached", "model", "input_tokens", "output_tokens")}
+            )
+        except (AiError, SyncBusy) as exc:
+            results.append(
+                {
+                    "document_id": str(doc_id),
+                    "error": str(exc) if isinstance(exc, AiError) else "analysis_busy",
+                }
+            )
+    return {"pending_before": len(pending), "results": results}
+
+
+async def execute(args) -> int:
+    settings = Settings()
+    updates = {}
+    if getattr(args, "max_pages", None) is not None:
+        updates["wiki_max_pages"] = args.max_pages
+    if getattr(args, "depth", None) is not None:
+        updates["wiki_max_depth"] = args.depth
+    if getattr(args, "seed", None):
+        updates["wiki_seeds"] = args.seed
+    settings = Settings(**{**settings.model_dump(), **updates})
+    if settings.database_url is None:
+        emit({"error": "database_not_configured"})
+        return 2
+    database = Database(settings)
+    try:
+        if args.command in {"sync-wiki", "worker"}:
+            while True:
+                result = await sync_wiki(database, settings)
+                emit(result)
+                if args.analyze and result["status"] != "failed":
+                    emit(await analyze_pending(database, settings, args.limit))
+                if args.command != "worker":
+                    return 2 if result["status"] == "failed" else 0
+                await asyncio.sleep(settings.wiki_interval_seconds)
+        elif args.command == "analyze":
+            if args.document:
+                result = await analyze_document(database, settings, UUID(args.document))
+                emit({k: v for k, v in result.items() if k != "payload"})
+            else:
+                emit(await analyze_pending(database, settings, args.limit))
+        elif args.command == "summarize":
+            result = await summarize(database, settings, args.limit)
+            emit({k: v for k, v in result.items() if k != "payload"})
+        return 0
+    except SyncBusy:
+        emit({"error": "sync_in_progress"})
+        return 3
+    except AiError as exc:
+        emit({"error": str(exc)})
+        return 2
+    except SQLAlchemyError:
+        emit({"error": "database_unavailable"})
+        return 2
+    finally:
+        await database.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("sync-wiki", "worker"):
+        command = commands.add_parser(name)
+        command.add_argument("--max-pages", type=int)
+        command.add_argument("--depth", type=int)
+        command.add_argument("--seed", action="append")
+        command.add_argument("--analyze", action="store_true")
+        command.add_argument("--limit", type=int, choices=range(1, 51), default=5)
+    analyze = commands.add_parser("analyze")
+    analyze.add_argument("--document")
+    analyze.add_argument("--limit", type=int, choices=range(1, 51), default=5)
+    summary = commands.add_parser("summarize")
+    summary.add_argument("--limit", type=int, choices=range(1, 51), default=20)
+    try:
+        raise SystemExit(asyncio.run(execute(parser.parse_args())))
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()

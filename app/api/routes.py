@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import __version__
 from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness
 from app.services.dashboard import get_dashboard
+from app.services.library import list_sources
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
         503: {"model": ApiError, "description": "Сценарий ошибки для разработки интерфейса"},
     },
 )
-def dashboard(
+async def dashboard(
     request: Request,
     scenario: PreviewScenario = PreviewScenario.DEFAULT,
 ) -> Dashboard | JSONResponse:
@@ -51,7 +52,26 @@ def dashboard(
                 )
             ).model_dump(),
         )
-    return get_dashboard(settings, scenario)
+    result = get_dashboard(settings, scenario)
+    database = request.app.state.database
+    if database is not None and not settings.demo_mode:
+        try:
+            stored_sources = await list_sources(database)
+            for stored in stored_sources:
+                for source in result.sources:
+                    if source.id == stored["id"]:
+                        source.status = stored["status"]
+                        source.last_synced_at = stored["last_synced_at"]
+                        source.error_message = stored["last_error"]
+                if stored["document_count"]:
+                    result.meta.mode = "live"
+                    result.meta.notice = (
+                        f"В библиотеке {stored['document_count']} страниц вики ФКН. "
+                        "Принадлежность заданий вашему курсу ещё не определена."
+                    )
+        except SQLAlchemyError:
+            result.meta.notice = "Хранилище источников временно недоступно."
+    return result
 
 
 @router.get("/health", summary="Проверка HTTP-приложения")
