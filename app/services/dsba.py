@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
 
-from app.api.schemas import Evidence, Task
+from app.api.schemas import Evidence, Material, Task
 from app.config import Settings
 from app.connectors.dsba import DsbaConnector, DsbaError, DsbaSelection
 from app.db.models import DocumentVersion, IngestionRun, IngestionSource, SourceDocument
@@ -222,6 +222,35 @@ async def dsba_tasks(database: Database, source_id: str) -> list[Task]:
                 t.id,
             ),
         )
+
+
+async def dsba_materials(database: Database, source_id: str) -> list[Material]:
+    """Read the selected group's active library cards, without a new upstream call."""
+    async with database.session() as session:
+        rows = (
+            await session.execute(
+                select(SourceDocument, DocumentVersion)
+                .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
+                .where(
+                    SourceDocument.source_id == source_id,
+                    SourceDocument.is_active.is_(True),
+                    SourceDocument.external_id.startswith("material:"),
+                )
+                .order_by(SourceDocument.title, SourceDocument.id)
+                .limit(1000)
+            )
+        ).all()
+        return [
+            Material(
+                id=str(document.id),
+                title=document.title.removeprefix(version.attributes.get("course", "") + " · "),
+                course=version.attributes.get("course") or "Предмет не указан",
+                source_id=document.source_id,
+                url=document.url,
+                fetched_at=version.fetched_at,
+            )
+            for document, version in rows
+        ]
 
 
 async def refresh_dsba_profiles(database: Database, settings: Settings) -> list[dict]:

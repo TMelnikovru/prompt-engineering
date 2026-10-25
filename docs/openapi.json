@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HSE Study Agent",
-    "description": "Контракт для разработки сайта учебного агента. Вики ФКН, DSBA Online по выбранной группе, сводки Telegram, библиотека PostgreSQL и сохранённые результаты ИИ-обработки. Доступ к библиотеке требует X-Ingestion-Token. Готовность живых подключений зависит от настройки и последней синхронизации. Персональные задания, план и напоминания ещё не формируются из вики и Telegram.",
+    "description": "Контракт для разработки сайта учебного агента. Вики ФКН, DSBA Online по выбранной группе, сводки Telegram, библиотека PostgreSQL и сохранённые результаты ИИ-обработки. Записи Telegram и ИИ-сводки требуют X-Ingestion-Token. Готовность живых подключений зависит от настройки и последней синхронизации. Персональные задания, план и напоминания ещё не формируются из вики и Telegram.",
     "version": "0.1.0"
   },
   "paths": {
@@ -1003,6 +1003,13 @@
           },
           "plan": {
             "$ref": "#/components/schemas/DayPlan"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/Material"
+            },
+            "type": "array",
+            "title": "Materials"
           }
         },
         "type": "object",
@@ -1557,6 +1564,45 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Material": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "course": {
+            "type": "string",
+            "title": "Course"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "course",
+          "source_id",
+          "url",
+          "fetched_at"
+        ],
+        "title": "Material"
       },
       "PlanBlock": {
         "properties": {

@@ -15,7 +15,7 @@
   <noscript><style>.splash { display: none; }</style></noscript>
   <script>try { if (localStorage.getItem("hse-agent:theme") === '"vit"') document.documentElement.dataset.theme = "vit"; } catch {}</script>
 </head>
-<body>
+<body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
   <a class="skip-link" href="#main">К содержимому</a>
 
   <div class="splash" id="splash" role="status" aria-live="polite">
@@ -52,24 +52,20 @@
           <span class="nav-caption">Учёба</span>
           <a class="nav-link" href="#today" data-nav="today"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#today"></use></svg>Сегодня</a>
           <a class="nav-link" href="#tasks" data-nav="tasks"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания<span class="nav-count" id="nav-task-count"></span></a>
-          <a class="nav-link" href="#sources" data-nav="sources"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники<span class="nav-alert" id="nav-source-alert" hidden></span></a>
-          <a class="nav-link" href="/telegram"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#doc"></use></svg>Сводка Telegram</a>
+          <a class="nav-link" href="#materials" data-nav="materials"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#doc"></use></svg>Материалы</a>
+          <a class="nav-link" href="#grades" data-nav="grades"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#grades"></use></svg>Оценки</a>
+          <a class="nav-link" href="/telegram"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#chat"></use></svg>Сводка Telegram</a>
           <a class="nav-link" href="#settings" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Настройки</a>
         </nav>
-        <details class="nav-group nav-more" id="nav-more">
-          <summary class="nav-link nav-soon"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Скоро в агенте<span class="nav-count">5</span><svg class="icon nav-more-chevron" aria-hidden="true"><use href="/static/icons.svg#chevron"></use></svg></summary>
-          <a class="nav-link nav-soon" href="#calendar" data-nav="calendar"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Календарь</a>
-          <a class="nav-link nav-soon" href="#events" data-nav="events"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#events"></use></svg>Мероприятия</a>
-          <a class="nav-link nav-soon" href="#clubs" data-nav="clubs"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#clubs"></use></svg>Клубы и кружки</a>
-          <a class="nav-link nav-soon" href="#minors" data-nav="minors"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#minors"></use></svg>Майноры</a>
-          <a class="nav-link nav-soon" href="#tutor" data-nav="tutor"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tutor"></use></svg>ИИ-репетитор</a>
-        </details>
       </div>
 
-      <a class="account-link" href="#account" data-nav="account">
-        <span class="avatar" aria-hidden="true"><svg class="icon"><use href="/static/icons.svg#account"></use></svg></span>
-        <span class="account-text"><strong>Аккаунт</strong><span>вход и данные</span></span>
-      </a>
+      <div class="sidebar-bottom">
+        <a class="nav-link nav-quiet" href="#sources" data-nav="sources"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники<span class="nav-alert" id="nav-source-alert" hidden></span></a>
+        <a class="account-link" href="#account" data-nav="account">
+          <span class="avatar" id="account-avatar" aria-hidden="true"><svg class="icon"><use href="/static/icons.svg#account"></use></svg></span>
+          <span class="account-text"><strong id="account-name">Аккаунт</strong><span id="account-group">вход и данные</span></span>
+        </a>
+      </div>
       <div class="sidebar-resizer" id="sidebar-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Ширина меню" aria-controls="sidebar" title="Потяни, чтобы изменить ширину. Двойной клик вернёт исходную."></div>
     </aside>
 
@@ -175,7 +171,7 @@
           </div>
           <div class="toolbar">
             <div class="segmented" role="group" aria-label="Фильтр по сроку">
-              <button type="button" data-filter="all" aria-pressed="true">Все</button>
+              <button type="button" data-filter="all" aria-pressed="true">Все задания</button>
               <button type="button" data-filter="today" aria-pressed="false">Сегодня</button>
               <button type="button" data-filter="week" aria-pressed="false">Неделя</button>
               <button type="button" data-filter="no-deadline" aria-pressed="false">Без срока</button>
@@ -199,25 +195,7 @@
               <p class="view-lead" id="sources-lead"></p>
             </div>
           </div>
-          <details class="dsba-connection" id="dsba-connection">
-            <summary>Подключить или обновить dsba.online</summary>
-            <p>Программа, курс и группа определяют, какие материалы и дедлайны ты увидишь.</p>
-            <form id="dsba-form">
-              <fieldset disabled>
-                <label>Программа<select name="program" required aria-label="Программа"></select></label>
-                <label>Курс<select name="year" required aria-label="Курс"></select></label>
-                <label>Группа<select name="group" aria-label="Группа"></select></label>
-                <label>Подгруппа<select name="sub" aria-label="Подгруппа"></select></label>
-                <button class="button button-primary" type="submit">Подключить группу</button>
-              </fieldset>
-            </form>
-            <p>Без подгруппы могут отображаться материалы обеих подгрупп.</p>
-            <p id="dsba-message" role="status" aria-live="polite"></p>
-            <div id="dsba-materials-section" hidden>
-              <h3>Материалы группы · до 100 записей</h3>
-              <ul id="dsba-materials"></ul>
-            </div>
-          </details>
+          <p class="settings-hint">DSBA загружается по данным профиля и обновляется автоматически.</p>
           <ul class="source-grid" id="source-grid"></ul>
           <div class="callout">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#info"></use></svg>
@@ -231,6 +209,7 @@
               <h1 class="view-title" id="settings-title">Настройки</h1>
               <p class="view-lead">Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.</p>
             </div>
+            <a class="button button-ghost" href="#account">Учебный профиль</a>
           </div>
           <form class="settings-form" id="settings-form">
             <fieldset class="settings-card">
@@ -285,14 +264,44 @@
           </form>
         </section>
 
-        <section class="view" id="view-soon" data-view="soon" tabindex="-1" aria-labelledby="soon-title" hidden>
+        <section class="view" id="view-materials" data-view="materials" tabindex="-1" aria-labelledby="materials-title" hidden>
+          <div class="view-heading">
+            <h1 class="view-title" id="materials-title">Материалы</h1>
+          </div>
+          <div class="toolbar materials-toolbar">
+            <label class="search">
+              <span class="visually-hidden">Поиск по материалам</span>
+              <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#search"></use></svg>
+              <input class="input" id="materials-search" type="search" placeholder="Найти материал или задание" autocomplete="off">
+            </label>
+            <div class="toolbar-group">
+              <button class="toggle" id="materials-today" type="button" aria-pressed="false">Нужно сегодня<span class="toggle-count" id="materials-today-count"></span></button>
+              <label class="select-wrap">Курс
+                <select class="select" id="materials-course"><option value="">Все курсы</option></select>
+              </label>
+            </div>
+          </div>
+          <div class="materials" id="materials-list"></div>
+          <div class="empty-state" id="materials-empty" hidden>
+            <strong id="materials-empty-title"></strong>
+            <p id="materials-empty-text"></p>
+          </div>
+        </section>
+
+        <section class="view" id="view-grades" data-view="grades" tabindex="-1" aria-labelledby="grades-title" hidden>
+          <div class="view-heading">
+            <h1 class="view-title" id="grades-title">Оценки</h1>
+          </div>
           <div class="soon">
             <div class="soon-copy">
-              <span class="badge-soon" id="soon-badge">После MVP</span>
-              <h1 class="view-title" id="soon-title"></h1>
-              <p class="view-lead" id="soon-lead"></p>
-              <ul class="soon-points" id="soon-points"></ul>
-              <a class="button button-ghost" href="#today">Вернуться к плану</a>
+              <span class="badge-soon">Скоро</span>
+              <h2 class="soon-heading">Оценки появятся, когда агент подключит SmartLMS и ЕЛК</h2>
+              <ul class="soon-points">
+                <li>Накопленная оценка по каждому курсу</li>
+                <li>Элементы контроля с весами из формулы курса</li>
+                <li>Прогноз итоговой оценки: сколько нужно набрать на экзамене</li>
+              </ul>
+              <a class="button button-ghost" href="#sources">Проверить источники</a>
             </div>
             <svg class="soon-pattern" viewBox="0 0 280 280" aria-hidden="true">
               <polygon style="--i: 0" points="20,280 110,40 150,40 60,280" fill="#163a8a"/>
@@ -303,13 +312,73 @@
             </svg>
           </div>
         </section>
-      </div>
 
-      <footer class="page-footer">
-        <span id="updated-at"></span>
-      </footer>
+        <section class="view" id="view-account" data-view="account" tabindex="-1" aria-labelledby="account-title" hidden>
+          <div class="view-heading">
+            <h1 class="view-title" id="account-title">Аккаунт</h1>
+          </div>
+          <div class="panel account-panel">
+            <dl class="account-facts">
+              <div><dt>ФИО</dt><dd id="account-view-name"></dd></div>
+              <div><dt>Программа</dt><dd id="account-view-program"></dd></div>
+              <div><dt>Курс</dt><dd id="account-view-year"></dd></div>
+              <div><dt>Группа</dt><dd id="account-view-group"></dd></div>
+              <div><dt>Подгруппа</dt><dd id="account-view-sub"></dd></div>
+              <div><dt>Дисциплины</dt><dd id="account-view-subjects"></dd></div>
+            </dl>
+            <p class="settings-hint">Имя хранится только в этом браузере. Выбор учебной группы используется для автоматического обновления DSBA.</p>
+            <button class="button button-primary" id="edit-profile-button" type="button">Изменить профиль</button>
+            <button class="button button-ghost" id="logout-button" type="button">Выйти</button>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
+
+  <dialog class="signup" id="signup" aria-labelledby="signup-title">
+    <form class="signup-form" id="signup-form" method="dialog" novalidate>
+      <svg class="signup-pattern" viewBox="0 0 220 120" aria-hidden="true">
+        <polygon points="20,120 66,0 96,0 50,120" fill="#1d4aa8"/>
+        <polygon points="70,120 116,0 132,0 86,120" fill="#0050cf"/>
+        <polygon points="104,120 150,0 186,0 140,120" fill="#ece8f8"/>
+        <polygon points="160,120 206,0 220,0 220,10 178,120" fill="#9985c5"/>
+      </svg>
+      <span class="eyebrow">Вааась, давай знакомиться</span>
+      <h2 class="signup-title" id="signup-title">Вход в учебного агента</h2>
+      <p class="settings-hint">Выбери свою программу и группу. Задания и материалы DSBA загрузятся после входа.</p>
+      <fieldset class="signup-fields" id="signup-fields" disabled>
+        <label class="field signup-wide">ФИО
+          <input class="input" name="name" id="signup-name" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" required minlength="5" maxlength="200">
+        </label>
+        <label class="field signup-wide">Программа
+          <select class="input" name="program" id="signup-program" required aria-label="Программа"></select>
+        </label>
+        <label class="field">Курс
+          <select class="input" name="year" id="signup-year" required aria-label="Курс"></select>
+        </label>
+        <label class="field">Группа
+          <select class="input" name="group" id="signup-group" aria-label="Группа"></select>
+        </label>
+        <label class="field signup-wide">Подгруппа
+          <select class="input" name="sub" id="signup-sub" aria-label="Подгруппа"></select>
+        </label>
+        <p class="settings-hint signup-wide">Без подгруппы доступны материалы всех подгрупп.</p>
+        <details class="signup-wide" id="signup-subject-options" hidden>
+          <summary>Выбрать дисциплины (необязательно)</summary>
+          <p class="settings-hint">Если ничего не выбрано, используются предметы группы.</p>
+          <div class="signup-subjects" id="signup-subjects"></div>
+        </details>
+      </fieldset>
+      <p class="settings-hint" id="signup-message" role="status" aria-live="polite"></p>
+      <p class="signup-error" id="signup-error" role="alert" hidden></p>
+      <button class="button button-ghost" id="signup-retry" type="button" hidden>Повторить загрузку списка</button>
+      <div class="signup-actions">
+        <button class="button button-ghost" id="signup-cancel" type="button" hidden>Отмена</button>
+        <button class="button button-primary signup-submit" id="signup-submit" type="submit" disabled>Войти</button>
+      </div>
+      <p class="settings-hint">Имя остаётся в браузере. Для DSBA передаются только параметры учебной группы.</p>
+    </form>
+  </dialog>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <noscript><p class="mode-notice">Включи JavaScript, чтобы увидеть задания.</p></noscript>

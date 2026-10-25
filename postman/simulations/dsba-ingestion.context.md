@@ -21,7 +21,7 @@ exercise the same handler over real HTTP, with PostgreSQL and FastAPI.
 
 The mock exposes POST `/__control` with `revision: 2` for a changed deadline
 and `mode` values `ok`, `deadline-error`, `all-error`, `catalog-error`,
-`malformed`, `invalid-date`, `slow`, `auth`, `conflict`, `deleted`.
+`malformed`, `invalid-date`, `slow`, `auth`, `conflict`, `deleted`, `no-materials`.
 These control routes exist only in the stand-in.
 
 The gateway run on 2026-10-25 exercised catalog and group-selected GETs,
@@ -37,3 +37,19 @@ these observed shapes. Live requests separately verified the real public
 catalog and records from both Mac and the production server network. It
 does not establish access to private Classroom or PDF contents, nor a
 permanent guarantee that the site's public interface will stay unchanged.
+
+2026-10-25 combined release run: gateway port 4914, real FastAPI and isolated
+PostgreSQL. Group 261 sync passed two Postman assertions; dashboard passed three
+assertions for three tasks, one standalone material and material provenance.
+Native Chrome completed local profile, catalog/group selection, Sources,
+Materials (standalone lecture plus task link) and Tasks (exact/date-only/unknown
+deadlines). All upstream content was synthetic; the dsba member served the
+connector calls in NDJSON. No live production profile was selected by the test.
+
+2026-10-25 onboarding run (gateway 4916, isolated PostgreSQL): catalog-error
+kept login fields disabled and offered retry; restoring mode=ok let the native
+Chrome login select program/year/group/sub/subjects and automatically POST sync.
+The persisted selection was dsba/1/261/sub1/subjects=[cpp], with four records.
+The profile showed these fields, Sources had no manual connection form, and a
+reload reused the saved group. FIO stayed in the browser; gateway requests
+contained only the group parameters. The dsba member served the requests.
