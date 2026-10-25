@@ -545,7 +545,6 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .nav-group .nav-link { flex-direction: column; justify-content: center; gap: 2px; min-height: 52px; padding: 4px 2px; font-size: 11px; position: relative; }
   .nav-group .nav-count { position: absolute; top: 4px; right: calc(50% - 22px); margin: 0; font-size: 11px; }
   .nav-group .nav-alert { position: absolute; top: 6px; right: calc(50% - 16px); margin: 0; }
-  .main { padding-bottom: 96px; }
   .topbar { flex-wrap: nowrap; gap: 8px; }
   .today-date { font-size: 12px; letter-spacing: .06em; }
   #sync-text { display: none; }
@@ -566,7 +565,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .source-card { grid-template-columns: 1fr; }
   .source-side { align-items: flex-start; text-align: left; }
   .source-grid { padding: 4px 18px; }
-  .main { padding: 20px 16px 40px; gap: 20px; }
+  .main { padding: 20px 16px calc(96px + env(safe-area-inset-bottom)); gap: 20px; }
   .panel { padding: 22px 18px; }
   .plan-item { grid-template-columns: 52px 16px minmax(0, 1fr); gap: 10px; }
   .task-summary { padding: 16px; gap: 12px; }
