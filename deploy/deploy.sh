@@ -5,6 +5,7 @@ umask 077
 
 deploy_root="${1:-$HOME/apps/hse-study-agent}"
 revision="${2:-main}"
+deploy_project="${HSE_DEPLOY_PROJECT:-hse-study-agent}"
 export GIT_TERMINAL_PROMPT=0
 
 exec 9>"$deploy_root/deploy.lock"
@@ -37,7 +38,7 @@ compose_for() {
     local commit="$1"
     shift
     HSE_APP_IMAGE="hse-study-agent:$commit" docker compose \
-        --project-name hse-study-agent \
+        --project-name "$deploy_project" \
         --env-file "$deploy_root/.env" \
         --project-directory "$deploy_root/releases/$commit" \
         -f "$deploy_root/releases/$commit/compose.yaml" "$@"
