@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from app.db.models import AiArtifact, DocumentVersion, IngestionRun, IngestionSource, SourceDocument
 from app.db.session import Database
+from app.services.source_catalog import source_description, source_error_message
 
 
 async def list_sources(database: Database) -> list[dict]:
@@ -49,12 +50,14 @@ async def list_sources(database: Database) -> list[dict]:
                 {
                     "id": source.id,
                     "name": source.name,
+                    "description": source_description(source.kind),
                     "kind": source.kind,
                     "base_url": source.base_url,
                     "status": status,
                     "document_count": count,
                     "last_synced_at": source.last_synced_at,
                     "last_error": source.last_error,
+                    "error_message": source_error_message(source.last_error),
                     "scope": source.config,
                     "last_run": {
                         "id": str(run.id),

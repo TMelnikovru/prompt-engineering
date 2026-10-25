@@ -11,12 +11,12 @@
 </head>
 <body>
   <main class="telegram-main">
-    <a href="/">← Мой учебный день</a>
-    <header class="page-heading">
+    <a class="telegram-back" href="/">← Мой учебный день</a>
+    <header class="view-heading">
       <div>
-        <p class="eyebrow">УЧЕБНАЯ ПЕРЕПИСКА</p>
-        <h1>Что происходит в чатах.</h1>
-        <p class="page-description">Темы, договорённости и задания со ссылками на сообщения.</p>
+        <p class="eyebrow">Учебная переписка</p>
+        <h1 class="view-title">Что происходит в чатах.</h1>
+        <p class="view-lead">Темы, договорённости и задания со ссылками на сообщения.</p>
       </div>
     </header>
     <form id="access-form" class="panel telegram-access">
@@ -30,8 +30,8 @@
     </form>
     <div class="telegram-actions" id="controls" hidden>
       <button class="button button-primary" id="refresh" type="button">Прочитать чаты и обновить сводку</button>
-      <button class="button button-secondary" id="reload" type="button">Показать сохранённую</button>
-      <button class="button button-secondary" id="logout" type="button">Закрыть доступ</button>
+      <button class="button button-ghost" id="reload" type="button">Показать сохранённую</button>
+      <button class="button button-ghost" id="logout" type="button">Закрыть доступ</button>
     </div>
     <p id="feedback" role="status" aria-live="polite">Войдите, чтобы увидеть сохранённую сводку.</p>
     <section id="connection" class="panel telegram-panel" hidden aria-label="Состояние Telegram"></section>

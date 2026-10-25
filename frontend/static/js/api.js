@@ -31,8 +31,8 @@ export async function fetchDashboard(scenario = "default") {
     if (error instanceof ApiError) throw error;
     throw new ApiError(
       error.name === "AbortError"
-        ? "Сервер отвечает слишком долго. Попробуйте ещё раз."
-        : "Не удалось связаться с сервером. Проверьте соединение.",
+        ? "Сервер долго не отвечает. Попробуй ещё раз."
+        : "Не получилось связаться с сервером. Проверь интернет.",
     );
   } finally {
     clearTimeout(timeout);

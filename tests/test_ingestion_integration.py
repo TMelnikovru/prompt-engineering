@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, text
 
+from app.api.schemas import Source
 from app.config import Settings
 from app.connectors.wiki import collect_wiki
 from app.db.models import AiArtifact, DocumentVersion, SourceDocument
@@ -58,6 +59,22 @@ def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url
             assert imported["unchanged"] == 2
             assert (await list_sources(database))[0]["scope"]["transport"] == "collector"
             assert (await list_sources(database))[0]["status"] == "partial"
+            # The main frontend must consume the same source fields from either endpoint.
+            # The library endpoint is operator-only; the dashboard stays public.
+            with TestClient(create_app(settings)) as api:
+                assert api.get("/api/v1/sources").status_code == 401
+                stored = api.get(
+                    "/api/v1/sources", headers={"X-Ingestion-Token": "operator-simulation"}
+                ).json()[0]
+                shown = next(
+                    item
+                    for item in api.get("/api/v1/dashboard").json()["sources"]
+                    if item["id"] == "wiki"
+                )
+                assert shown["status"] == "partial"
+                assert {key: stored[key] for key in Source.model_fields} == shown
+                assert stored["last_error"] == "wiki_missingtitle"
+                assert stored["error_message"] != stored["last_error"]
             async with database.session() as session:
                 assert await session.scalar(select(func.count()).select_from(SourceDocument)) == 2
                 assert await session.scalar(select(func.count()).select_from(DocumentVersion)) == 2
