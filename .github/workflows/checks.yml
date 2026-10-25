@@ -46,3 +46,23 @@ jobs:
         run: |
           bash -n deploy/prepare.sh deploy/deploy.sh deploy/install-cron.sh
           docker compose config --quiet
+
+  deployment:
+    runs-on: ubuntu-latest
+    env:
+      HSE_DEPLOY_PROJECT: hse-study-agent-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy an isolated stack with the production script
+        run: |
+          task_root="$RUNNER_TEMP/hse-study-agent"
+          bash deploy/prepare.sh "$task_root" > /dev/null
+          git branch --force ci/preview HEAD
+          git clone --quiet --shared . "$task_root/repository"
+          printf 'HSE_DEPLOY_BRANCH=ci/preview\nHSE_DEPLOY_PROJECT=hse-study-agent-ci\n' > "$task_root/deploy.env"
+          bash deploy/deploy.sh "$task_root"
+      - name: Remove test containers and volumes
+        if: always()
+        run: |
+          docker compose --project-name hse-study-agent-ci \
+            --env-file "$RUNNER_TEMP/hse-study-agent/.env" down --volumes
