@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HSE_DEPLOY_PROJECT: hse-study-agent-ci
+      # Deployment smoke must not crawl the real university website.
+      HSE_WIKI_API_URL: http://127.0.0.1:9/api.php
     steps:
       - uses: actions/checkout@v4
       - name: Deploy an isolated stack with the production script

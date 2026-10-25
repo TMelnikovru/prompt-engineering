@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     wiki_request_timeout: float = Field(default=20, ge=0.05, le=120)
     wiki_request_delay: float = Field(default=0.25, ge=0, le=30)
     wiki_interval_seconds: int = Field(default=900, ge=60)
+    wiki_retry_seconds: int = Field(default=60, ge=1)
     ingestion_token: SecretStr | None = Field(default=None, repr=False)
     openai_api_key: SecretStr | None = Field(
         default=None, validation_alias="OPENAI_API_KEY", repr=False

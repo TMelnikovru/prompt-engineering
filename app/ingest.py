@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import sys
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -66,7 +67,70 @@ async def analyze_pending(database: Database, settings: Settings, limit: int) ->
                     "error": str(exc) if isinstance(exc, AiError) else "analysis_busy",
                 }
             )
-    return {"pending_before": len(pending), "results": results}
+    completed = sum("error" not in result for result in results)
+    return {
+        "pending_before": len(pending),
+        "remaining": len(pending) - completed,
+        "results": results,
+    }
+
+
+def stage_error(exc: Exception) -> dict:
+    if isinstance(exc, SyncBusy):
+        return {"error": "operation_in_progress"}
+    if isinstance(exc, AiError):
+        return {"error": str(exc)}
+    # Database exception messages can include connection credentials.
+    return {"error": "database_unavailable"}
+
+
+async def worker_cycle(database: Database, settings: Settings, args) -> dict:
+    """Each stage can recover independently; pending AI work lives in PostgreSQL."""
+    result = {"event": "wiki_cycle", "started_at": datetime.now(UTC).isoformat()}
+    try:
+        result["sync"] = await sync_wiki(database, settings)
+    except (SyncBusy, SQLAlchemyError) as exc:
+        result["sync"] = stage_error(exc)
+    if args.analyze:
+        try:
+            result["analysis"] = await analyze_pending(database, settings, args.limit)
+        except (AiError, SyncBusy, SQLAlchemyError) as exc:
+            result["analysis"] = stage_error(exc)
+    if args.summarize:
+        try:
+            summary = await summarize(database, settings, args.summary_limit)
+            result["summary"] = {key: value for key, value in summary.items() if key != "payload"}
+        except (AiError, SyncBusy, SQLAlchemyError) as exc:
+            if isinstance(exc, AiError) and str(exc) == "no_analyzed_documents":
+                result["summary"] = {"skipped": "no_analyzed_documents"}
+            else:
+                result["summary"] = stage_error(exc)
+    result["retry_required"] = (
+        result["sync"].get("status") != "success"
+        or any(
+            "error" in stage for stage in (result.get("analysis", {}), result.get("summary", {}))
+        )
+        or result.get("analysis", {}).get("remaining", 0) > 0
+    )
+    return result
+
+
+def retry_delay(settings: Settings, failures: int) -> int:
+    if not failures:
+        return settings.wiki_interval_seconds
+    return min(
+        settings.wiki_interval_seconds, settings.wiki_retry_seconds * 2 ** min(failures - 1, 10)
+    )
+
+
+async def run_worker(database: Database, settings: Settings, args):
+    failures = 0
+    while True:
+        result = await worker_cycle(database, settings, args)
+        failures = failures + 1 if result["retry_required"] else 0
+        delay = retry_delay(settings, failures)
+        emit({**result, "next_attempt_in_seconds": delay})
+        await asyncio.sleep(delay)
 
 
 async def execute(args) -> int:
@@ -84,15 +148,12 @@ async def execute(args) -> int:
         return 2
     database = Database(settings)
     try:
-        if args.command in {"sync-wiki", "worker"}:
-            while True:
-                result = await sync_wiki(database, settings)
-                emit(result)
-                if args.analyze and result["status"] != "failed":
-                    emit(await analyze_pending(database, settings, args.limit))
-                if args.command != "worker":
-                    return 2 if result["status"] == "failed" else 0
-                await asyncio.sleep(settings.wiki_interval_seconds)
+        if args.command == "worker":
+            await run_worker(database, settings, args)
+        elif args.command == "sync-wiki":
+            result = await worker_cycle(database, settings, args)
+            emit(result)
+            return 2 if result["retry_required"] else 0
         elif args.command == "import-wiki":
             batch = WikiBatch.model_validate_json(sys.stdin.read(100_000_000))
             emit(await sync_wiki(database, settings, batch=batch))
@@ -129,7 +190,9 @@ def main():
         command.add_argument("--depth", type=int)
         command.add_argument("--seed", action="append")
         command.add_argument("--analyze", action="store_true")
+        command.add_argument("--summarize", action="store_true")
         command.add_argument("--limit", type=int, choices=range(1, 51), default=5)
+        command.add_argument("--summary-limit", type=int, choices=range(1, 51), default=20)
     analyze = commands.add_parser("analyze")
     analyze.add_argument("--document")
     analyze.add_argument("--limit", type=int, choices=range(1, 51), default=5)

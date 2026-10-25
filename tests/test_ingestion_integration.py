@@ -2,6 +2,8 @@ import asyncio
 import os
 import subprocess
 import sys
+from argparse import Namespace
+from contextlib import suppress
 
 import httpx
 import pytest
@@ -13,6 +15,7 @@ from app.connectors.wiki import collect_wiki
 from app.db.models import AiArtifact, DocumentVersion, SourceDocument
 from app.db.session import Database
 from app.db.url import postgresql_url
+from app.ingest import run_worker
 from app.main import create_app
 from app.services.analysis import AiError, analyze_document, summarize
 from app.services.ingestion import SyncBusy, ingestion_lock, sync_wiki
@@ -134,3 +137,94 @@ def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url
         assert api.get("/api/v1/dashboard").json()["meta"]["mode"] == "live"
         assert api.post("/api/v1/integrations/wiki/sync").status_code == 401
         assert api.get("/api/v1/documents?limit=0").status_code == 422
+
+
+def test_worker_recovers_from_wiki_and_ai_outages_and_restart(
+    ingestion_url, upstreams, monkeypatch
+):
+    settings = Settings(
+        _env_file=None,
+        database_url=ingestion_url,
+        wiki_api_url=upstreams["fkn-wiki"] + "/api.php",
+        wiki_seeds=["Тестовый курс"],
+        wiki_max_pages=1,
+        wiki_request_delay=0,
+        wiki_retry_seconds=1,
+        wiki_interval_seconds=60,
+        openai_api_key="simulation-only",
+        openai_base_url=upstreams["openai"] + "/v1",
+        extraction_model="simulation-extraction",
+        summary_model="simulation-summary",
+    )
+    args = Namespace(analyze=True, summarize=True, limit=25, summary_limit=25)
+
+    async def run():
+        events = asyncio.Queue()
+        monkeypatch.setattr("app.ingest.emit", events.put_nowait)
+        database = Database(settings)
+        task = None
+        try:
+            async with database.session() as session, session.begin():
+                await session.execute(
+                    text(
+                        "TRUNCATE ai_artifacts, document_versions, source_documents, "
+                        "ingestion_runs, ingestion_sources CASCADE"
+                    )
+                )
+            async with httpx.AsyncClient() as client:
+                await client.post(upstreams["fkn-wiki"] + "/__control", json={"mode": "slow"})
+                # The real HTTP client times out; the worker stays alive and retries.
+                settings.wiki_request_timeout = 0.05
+                task = asyncio.create_task(run_worker(database, settings, args))
+                failed = await asyncio.wait_for(events.get(), timeout=10)
+                assert failed["sync"]["status"] == "failed"
+                assert failed["sync"]["errors"][0]["code"] == "wiki_timeout"
+                assert failed["next_attempt_in_seconds"] == 1
+                settings.wiki_request_timeout = 5
+                await client.post(upstreams["fkn-wiki"] + "/__control", json={"mode": "ok"})
+                await client.post(upstreams["openai"] + "/__control", json={"mode": "rate-limit"})
+                ai_failed = await asyncio.wait_for(events.get(), timeout=10)
+                assert ai_failed["sync"]["created"] == 1
+                assert ai_failed["analysis"]["results"][0]["error"] == "openai_http_429"
+                assert ai_failed["next_attempt_in_seconds"] == 2
+                # AI catches up from PostgreSQL even if the wiki fails again.
+                await client.post(upstreams["fkn-wiki"] + "/__control", json={"mode": "error"})
+                await client.post(upstreams["openai"] + "/__control", json={"mode": "ok"})
+                backlog = await asyncio.wait_for(events.get(), timeout=10)
+                assert backlog["sync"]["status"] == "failed"
+                assert backlog["analysis"]["remaining"] == 0
+                assert backlog["summary"]["cached"] is False
+                await client.post(upstreams["fkn-wiki"] + "/__control", json={"mode": "ok"})
+                recovered = await asyncio.wait_for(events.get(), timeout=10)
+                assert recovered["sync"]["unchanged"] == 1
+                assert recovered["retry_required"] is False
+                assert recovered["next_attempt_in_seconds"] == 60
+                assert recovered["summary"]["cached"] is True
+                assert (await list_sources(database))[0]["status"] == "connected"
+                calls = (await client.get(upstreams["openai"] + "/__stats")).json()["requests"]
+                assert calls == 3  # one 429, extraction, summary
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+                await database.close()
+                database = Database(settings)
+                task = asyncio.create_task(run_worker(database, settings, args))
+                restarted = await asyncio.wait_for(events.get(), timeout=10)
+                assert restarted["sync"]["unchanged"] == 1
+                assert restarted["analysis"]["pending_before"] == 0
+                assert restarted["summary"]["cached"] is True
+                assert (await client.get(upstreams["openai"] + "/__stats")).json()[
+                    "requests"
+                ] == calls
+            async with database.session() as session:
+                assert await session.scalar(select(func.count()).select_from(SourceDocument)) == 1
+                assert await session.scalar(select(func.count()).select_from(DocumentVersion)) == 1
+                assert await session.scalar(select(func.count()).select_from(AiArtifact)) == 2
+        finally:
+            if task:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            await database.close()
+
+    asyncio.run(run())

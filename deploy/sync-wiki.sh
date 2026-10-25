@@ -11,4 +11,4 @@ flock -n 9 || exit 0
 cd "$deploy_root/current"
 export HSE_APP_IMAGE="$deploy_project:$(basename "$(readlink -f "$deploy_root/current")")"
 docker compose --project-name "$deploy_project" --env-file "$deploy_root/.env" \
-    exec -T app python -m app.ingest sync-wiki --analyze --limit 5
+    exec -T app python -m app.ingest sync-wiki --analyze --summarize --limit 25 --summary-limit 25 </dev/null

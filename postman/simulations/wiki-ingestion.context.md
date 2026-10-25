@@ -8,7 +8,7 @@ these are local owned mocks, not vendor-published mocks.
 ## Purpose
 
 Runs the actual WikiConnector and structured_response HTTP clients against
-stand-ins; database persistence is tested separately with real PostgreSQL in CI.
+stand-ins. Recovery was also run through worker_cycle with real PostgreSQL.
 Handlers and control routes are in postman/mocks.
 
 ## Execution
@@ -33,4 +33,13 @@ The pytest fixtures run the same handlers directly with Node on ephemeral ports.
 <!-- begin:observations -->
 2026-10-25: both fkn-wiki and openai-responses served real client calls;
 the parse result and typed ExtractedChunk completed. No member stayed silent.
+2026-10-25 recovery run: worker_cycle used an isolated PostgreSQL test database
+and the listening gateway on 4910. POST /wiki/__control mode=slow with client
+timeout=0.1 yielded wiki_timeout; then mode=ok plus /openai/__control
+mode=rate-limit persisted the page and left extraction pending after HTTP 429.
+Switching OpenAI to ok completed extraction and summary; a repeat reused the
+summary with zero tokens. Both members served requests in the NDJSON log.
+The same recovery and worker restart are automated in
+tests/test_ingestion_integration.py against the same HTTP handlers.
+This proves recovery against the stand-ins, not availability of the real wiki.
 <!-- end:observations -->

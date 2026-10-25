@@ -58,7 +58,7 @@ rollback() {
     echo "$(date -Is) Deployment failed for $revision" >&2
     if [[ -n "$previous" ]]; then
         echo "$(date -Is) Restoring $previous" >&2
-        compose_for "$previous" up -d --no-build --wait --wait-timeout 120 || \
+        compose_for "$previous" up -d --no-build --remove-orphans --wait --wait-timeout 120 || \
             echo 'Rollback failed; inspect the containers.' >&2
     fi
     exit "$result"
@@ -70,7 +70,7 @@ if [[ -f "$release/alembic.ini" ]]; then
     compose_for "$revision" up -d --no-build --wait --wait-timeout 120 postgres
     compose_for "$revision" run --rm --no-deps app python -m alembic upgrade head
 fi
-compose_for "$revision" up -d --no-build --wait --wait-timeout 120
+compose_for "$revision" up -d --no-build --remove-orphans --wait --wait-timeout 120
 # Verify authentication and a real SQL roundtrip from the application container.
 compose_for "$revision" exec -T app python -c \
     'import psycopg; c = psycopg.connect(); assert c.execute("SELECT 1").fetchone() == (1,); c.close()'
