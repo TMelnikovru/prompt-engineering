@@ -4,150 +4,294 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="Учебный агент: задания, дедлайны и понятный план дня.">
+  <meta name="theme-color" content="#1d4aa8">
+  <meta name="description" content="Учебный агент для студентов Вышки: задания, сроки и план дня.">
   <title>Учебный агент · Вышка</title>
   <link rel="icon" href="{{ url_for('static', path='/favicon.svg').path }}" type="image/svg+xml">
+  <link rel="preload" href="{{ url_for('static', path='/fonts/HSESans-Black.woff2').path }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ url_for('static', path='/fonts/HSESans-Regular.woff2').path }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css').path }}">
   <script type="module" src="{{ url_for('static', path='/js/app.js').path }}"></script>
+  <noscript><style>.splash { display: none; }</style></noscript>
+  <script>try { if (localStorage.getItem("hse-agent:theme") === '"vit"') document.documentElement.dataset.theme = "vit"; } catch {}</script>
 </head>
 <body>
   <a class="skip-link" href="#main">К содержимому</a>
+
+  <div class="splash" id="splash" role="status" aria-live="polite">
+    <svg class="splash-pattern" viewBox="0 0 600 720" aria-hidden="true">
+      <polygon style="--i: 0" points="120,720 380,0 470,0 210,720" fill="#163a8a"/>
+      <polygon style="--i: 1" points="230,720 490,0 530,0 270,720" fill="#0050cf"/>
+      <polygon style="--i: 2" points="300,720 560,0 640,0 380,720" fill="#ece8f8"/>
+      <polygon style="--i: 3" points="410,720 670,0 700,0 440,720" fill="#9985c5"/>
+      <polygon style="--i: 4" points="470,720 640,250 640,720" fill="#b3a5dc"/>
+    </svg>
+    <span class="splash-eyebrow">УЧЕБНЫЙ АГЕНТ ВЫШКИ</span>
+    <p class="splash-word" aria-label="Вааааась">
+      <span style="--i: 0" aria-hidden="true">В</span><span style="--i: 1" aria-hidden="true">а</span><span style="--i: 2" aria-hidden="true">а</span><span style="--i: 3" aria-hidden="true">а</span><span style="--i: 4" aria-hidden="true">а</span><span style="--i: 5" aria-hidden="true">а</span><span style="--i: 6" aria-hidden="true">с</span><span style="--i: 7" aria-hidden="true">ь</span>
+    </p>
+    <p class="splash-text" id="splash-text">Собираем задания и сроки, раскладываем день по полочкам.</p>
+    <div class="splash-progress" aria-hidden="true"><span></span></div>
+  </div>
+
   <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="#overview" aria-label="Учебный агент — обзор">
-        <span class="brand-mark" aria-hidden="true">у.</span>
-        <span>учебный агент<small>для студентов Вышки</small></span>
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#today" aria-label="Учебный агент, сегодня">
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#163a8a"/>
+          <polygon class="band" points="9,30 17,10 22,10 14,30" fill="#9985c5"/>
+          <polygon class="band" points="17,30 25,10 28,10 20,30" fill="#ece8f8"/>
+          <polygon class="band" points="24,30 32,10 34,10 26,30" fill="#0050cf"/>
+        </svg>
+        <span class="brand-text"><strong>учебный агент</strong><span>для студентов Вышки</span></span>
       </a>
-      <div class="nav-caption">МОЯ УЧЁБА</div>
-      <nav class="navigation" aria-label="Основная навигация">
-        <a href="#overview" data-nav="overview" aria-current="page">
-          <svg aria-hidden="true"><use href="/static/icons.svg#overview"></use></svg>Обзор
-        </a>
-        <a href="#tasks" data-nav="tasks">
-          <svg aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания
-          <span class="nav-count" id="nav-task-count">—</span>
-        </a>
-        <a href="#sources" data-nav="sources">
-          <svg aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники
-        </a>
-      </nav>
-      <div class="sidebar-note">
-        <span class="small-star" aria-hidden="true">✳</span>
-        <p>Большая учёба.<br>Маленькие понятные шаги.</p>
+
+      <div class="nav-wrap" id="nav-wrap">
+        <span class="nav-indicator" id="nav-indicator" aria-hidden="true"></span>
+        <nav class="nav-group" aria-label="Учёба">
+          <span class="nav-caption">Учёба</span>
+          <a class="nav-link" href="#today" data-nav="today"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#today"></use></svg>Сегодня</a>
+          <a class="nav-link" href="#tasks" data-nav="tasks"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания<span class="nav-count" id="nav-task-count"></span></a>
+          <a class="nav-link" href="#sources" data-nav="sources"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники<span class="nav-alert" id="nav-source-alert" hidden></span></a>
+          <a class="nav-link" href="#settings" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Настройки</a>
+        </nav>
+        <details class="nav-group nav-more" id="nav-more">
+          <summary class="nav-link nav-soon"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Скоро в агенте<span class="nav-count">5</span><svg class="icon nav-more-chevron" aria-hidden="true"><use href="/static/icons.svg#chevron"></use></svg></summary>
+          <a class="nav-link nav-soon" href="#calendar" data-nav="calendar"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Календарь</a>
+          <a class="nav-link nav-soon" href="#events" data-nav="events"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#events"></use></svg>Мероприятия</a>
+          <a class="nav-link nav-soon" href="#clubs" data-nav="clubs"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#clubs"></use></svg>Клубы и кружки</a>
+          <a class="nav-link nav-soon" href="#minors" data-nav="minors"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#minors"></use></svg>Майноры</a>
+          <a class="nav-link nav-soon" href="#tutor" data-nav="tutor"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tutor"></use></svg>ИИ-репетитор</a>
+        </details>
       </div>
-      <div class="sidebar-footer">Сначала — самое важное.</div>
+
+      <a class="account-link" href="#account" data-nav="account">
+        <span class="avatar" aria-hidden="true"><svg class="icon"><use href="/static/icons.svg#account"></use></svg></span>
+        <span class="account-text"><strong>Аккаунт</strong><span>вход и данные</span></span>
+      </a>
+      <div class="sidebar-resizer" id="sidebar-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Ширина меню" aria-controls="sidebar" title="Потяни, чтобы изменить ширину. Двойной клик вернёт исходную."></div>
     </aside>
 
     <main id="main" class="main" tabindex="-1">
       <header class="topbar">
-        <span class="breadcrumb">Мой учебный день</span>
+        <div class="today-block">
+          <time class="today-date" id="today-label"></time>
+        </div>
         <div class="topbar-actions">
-          <time id="today-label"></time>
-          <button class="button button-secondary" id="refresh-button" type="button">
-            <svg aria-hidden="true"><use href="/static/icons.svg#refresh"></use></svg>
-            <span>Обновить</span>
+          <span class="sync-state" id="sync-state" data-state="loading" role="status"><span class="sync-dot" aria-hidden="true"></span><span id="sync-text">Ищем связь…</span></span>
+          <button class="button theme-button" id="theme-button" type="button" aria-label="Тема «Вкусно и точка»" aria-pressed="false" title="Сменить тему">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#palette"></use></svg>
+          </button>
+          <button class="button button-primary" id="refresh-button" type="button">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#refresh"></use></svg>
+            <span>Обновить план</span>
           </button>
         </div>
       </header>
 
-      <div id="mode-notice" class="mode-notice" role="status" hidden>
+      <p id="mode-notice" class="mode-notice" role="status" hidden>
         <span class="notice-dot" aria-hidden="true"></span>
         <span id="mode-notice-text"></span>
-      </div>
+      </p>
 
-      <section class="page-heading">
-        <div>
-          <p class="eyebrow" id="page-eyebrow">ФОКУС НА СЕГОДНЯ</p>
-          <h1 id="page-title">Понятно, с чего начать.</h1>
-          <p class="page-description" id="page-description">
-            Задания, материалы и план на день — в одном месте.
-          </p>
-        </div>
-        <span class="heading-decoration" aria-hidden="true">↗</span>
-      </section>
-
-      <div id="load-state" class="load-state" role="status" aria-live="polite">
-        <span class="spinner" aria-hidden="true"></span>
-        <h2 id="load-title">Загружаем учебный день</h2>
-        <p id="load-description">Сейчас здесь появятся задания и план.</p>
-        <button id="retry-button" class="button button-primary" type="button" hidden>
-          Попробовать ещё раз
-        </button>
-      </div>
-
-      <div id="dashboard-content" hidden>
-        <section class="stats-grid" data-views="overview" aria-label="Краткая сводка">
-          <article class="stat-card">
-            <span class="stat-label">Задания в работе</span>
-            <strong id="stat-tasks">0</strong>
-            <span class="stat-description">Всё, что требует внимания</span>
-          </article>
-          <article class="stat-card">
-            <span class="stat-label">Дедлайн сегодня<span class="orange-dot"></span></span>
-            <strong id="stat-today">0</strong>
-            <span class="stat-description">Начнём с ближайших сроков</span>
-          </article>
-          <article class="stat-card stat-accent">
-            <span class="stat-label">Время в плане</span>
-            <strong><span id="stat-minutes">0</span><small>мин</small></strong>
-            <span class="stat-description" id="stat-budget">Из доступного времени</span>
-          </article>
+      <div class="views" id="views">
+        <section class="load-error" id="load-error" hidden>
+          <span class="eyebrow">Вааась, что-то пошло не так</span>
+          <h2>Не получилось загрузить данные</h2>
+          <p id="load-error-text"></p>
+          <button class="button button-primary" id="retry-button" type="button">Попробовать ещё раз</button>
         </section>
 
-        <div class="workspace-grid">
-          <section class="panel tasks-panel" data-views="overview tasks">
-            <div class="panel-heading">
-              <div><p class="eyebrow">ДЕРЖИМ В ПОЛЕ ЗРЕНИЯ</p><h2>Ближайшие задания</h2></div>
-              <span class="count-badge" id="task-count">0</span>
+        <section class="view" id="view-today" data-view="today" tabindex="-1" aria-labelledby="hero-title" hidden>
+          <section class="hero">
+            <div class="hero-copy">
+              <span class="eyebrow" id="hero-eyebrow"></span>
+              <h1 class="hero-title" id="hero-title"></h1>
+              <dl class="hero-facts" id="hero-facts"></dl>
             </div>
-            <div class="task-filters" role="group" aria-label="Фильтр заданий">
+            <svg class="hero-pattern" viewBox="0 0 360 260" aria-hidden="true">
+              <polygon style="--i: 0" points="0,260 96,0 150,0 54,260" fill="#163a8a"/>
+              <polygon style="--i: 1" points="70,260 166,0 196,0 100,260" fill="#0050cf"/>
+              <polygon style="--i: 2" points="120,260 216,0 276,0 180,260" fill="#ece8f8"/>
+              <polygon style="--i: 3" points="196,260 292,0 312,0 216,260" fill="#9985c5"/>
+              <polygon style="--i: 4" points="236,260 332,0 360,0 360,10 268,260" fill="#b3a5dc"/>
+              <polygon style="--i: 5" points="290,260 360,70 360,260" fill="#b3a5dc"/>
+            </svg>
+          </section>
+
+          <div class="today-grid">
+            <section class="panel panel-plan" aria-labelledby="plan-title">
+              <div class="panel-heading">
+                <h2 class="panel-title" id="plan-title">План на сегодня</h2>
+                <a class="panel-link" href="#settings">Изменить время</a>
+              </div>
+              <div class="budget-track" aria-hidden="true"><span class="budget-fill" id="budget-fill"></span></div>
+              <ol class="plan-list" id="plan-list"></ol>
+              <div class="empty-state" id="plan-empty" hidden>
+                <strong>Плана пока нет</strong>
+                <p>Агент составит расписание на день, как только источники пришлют задания.</p>
+              </div>
+              <div class="overload" id="overload" hidden>
+                <div class="overload-head">
+                  <div>
+                    <p class="overload-title" id="overload-title"></p>
+                    <p class="overload-text" id="overload-text"></p>
+                  </div>
+                  <a class="button button-ghost" href="#settings">Добавить время</a>
+                </div>
+                <ul class="overload-list" id="overload-list"></ul>
+              </div>
+              <p class="plan-note" id="plan-note"></p>
+            </section>
+
+            <section class="panel panel-deadlines" aria-labelledby="deadlines-title">
+              <div class="panel-heading">
+                <h2 class="panel-title" id="deadlines-title">Ближайшие сроки</h2>
+                <a class="panel-link" href="#tasks">Все задания</a>
+              </div>
+              <ul class="deadline-list" id="deadline-list"></ul>
+              <div class="empty-state" id="deadlines-empty" hidden>
+                <strong>Сроков пока нет</strong>
+                <p>Сроки появятся вместе с первыми заданиями из источников.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel" aria-labelledby="strip-title">
+            <div class="panel-heading">
+              <h2 class="panel-title" id="strip-title">Источники</h2>
+              <a class="panel-link" href="#sources" id="strip-summary"></a>
+            </div>
+            <ul class="source-strip" id="source-strip"></ul>
+          </section>
+        </section>
+
+        <section class="view" id="view-tasks" data-view="tasks" tabindex="-1" aria-labelledby="tasks-title" hidden>
+          <div class="view-heading">
+            <div>
+              <h1 class="view-title" id="tasks-title">Задания</h1>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="segmented" role="group" aria-label="Фильтр по сроку">
               <button type="button" data-filter="all" aria-pressed="true">Все</button>
-              <button type="button" data-filter="today" aria-pressed="false">На сегодня</button>
+              <button type="button" data-filter="today" aria-pressed="false">Сегодня</button>
+              <button type="button" data-filter="week" aria-pressed="false">Неделя</button>
               <button type="button" data-filter="no-deadline" aria-pressed="false">Без срока</button>
+              <button type="button" data-filter="done" aria-pressed="false">Готово</button>
             </div>
-            <ul id="task-list" class="task-list"></ul>
-            <div class="empty-state" id="tasks-empty" hidden>
-              <span aria-hidden="true">↗</span>
-              <h3>Здесь пока свободно</h3>
-              <p id="tasks-empty-text">Для выбранного фильтра заданий нет.</p>
-            </div>
-            <div class="panel-footer">Открой задание, чтобы увидеть материалы и источник срока.</div>
-          </section>
+            <label class="select-wrap">Курс
+              <select class="select" id="course-filter"><option value="">Все курсы</option></select>
+            </label>
+          </div>
+          <ul class="task-list" id="task-list"></ul>
+          <div class="empty-state" id="tasks-empty" hidden>
+            <strong id="tasks-empty-title">Здесь пока свободно</strong>
+            <p id="tasks-empty-text">Для выбранного фильтра заданий нет.</p>
+          </div>
+        </section>
 
-          <section class="panel plan-panel" data-views="overview">
-            <div class="panel-heading">
-              <div><p class="eyebrow">ПО ОДНОМУ ШАГУ</p><h2>План на сегодня</h2></div>
-              <svg class="panel-icon" aria-hidden="true"><use href="/static/icons.svg#spark"></use></svg>
+        <section class="view" id="view-sources" data-view="sources" tabindex="-1" aria-labelledby="sources-title" hidden>
+          <div class="view-heading">
+            <div>
+              <h1 class="view-title" id="sources-title">Источники</h1>
+              <p class="view-lead" id="sources-lead"></p>
             </div>
-            <div class="plan-budget">
-              <div><span>Учебная нагрузка</span><strong id="plan-budget-label"></strong></div>
-              <meter id="plan-meter" min="0" max="120" value="0" aria-label="Минуты в плане"></meter>
-            </div>
-            <ol id="plan-list" class="plan-list"></ol>
-            <div class="empty-state" id="plan-empty" hidden>
-              <h3>Начнём с заданий</h3><p>Когда они появятся, здесь будет план дня.</p>
-            </div>
-            <p class="plan-note" id="plan-note"></p>
-          </section>
+          </div>
+          <ul class="source-grid" id="source-grid"></ul>
+          <div class="callout">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#info"></use></svg>
+            <p>Если один источник сломался, агент продолжает читать остальные. PDF и другие материалы агент берёт из подключённых источников.</p>
+          </div>
+        </section>
 
-          <section class="panel sources-panel" data-views="overview sources">
-            <div class="panel-heading">
-              <div><p class="eyebrow">ОТКУДА ПРИХОДЯТ ДАННЫЕ</p><h2>Твои источники</h2></div>
-              <span class="source-total" id="source-total"></span>
+        <section class="view" id="view-settings" data-view="settings" tabindex="-1" aria-labelledby="settings-title" hidden>
+          <div class="view-heading">
+            <div>
+              <h1 class="view-title" id="settings-title">Настройки</h1>
+              <p class="view-lead">Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.</p>
             </div>
-            <ul id="source-list" class="source-list"></ul>
-            <div class="panel-footer">
-              PDF и другие учебные материалы поступают из подключённых источников.
+          </div>
+          <form class="settings-form" id="settings-form">
+            <fieldset class="settings-card">
+              <legend>Время на учёбу сегодня</legend>
+              <p class="settings-hint">Агент ставит в план столько, сколько ты успеешь.</p>
+              <div class="choice-row">
+                <label class="choice"><input type="radio" name="minutes" value="60"><span>1 ч</span></label>
+                <label class="choice"><input type="radio" name="minutes" value="120"><span>2 ч</span></label>
+                <label class="choice"><input type="radio" name="minutes" value="180"><span>3 ч</span></label>
+                <label class="choice"><input type="radio" name="minutes" value="240"><span>4 ч</span></label>
+                              </div>
+            </fieldset>
+            <fieldset class="settings-card">
+              <legend>Напоминания</legend>
+              <p class="settings-hint">Выбери канал и время. На каждый срок агент присылает одно напоминание.</p>
+              <div class="choice-row">
+                <label class="choice"><input type="checkbox" name="channel" value="site"><span>Сайт</span></label>
+                <label class="choice"><input type="checkbox" name="channel" value="telegram"><span>Telegram</span></label>
+                <label class="choice"><input type="checkbox" name="channel" value="mail"><span>Почта</span></label>
+              </div>
+              <label class="field">Когда напомнить
+                <select class="select" name="remind">
+                  <option value="1440">За сутки</option>
+                  <option value="180">За 3 часа</option>
+                  <option value="60">За час</option>
+                </select>
+              </label>
+            </fieldset>
+            <fieldset class="settings-card">
+              <legend>Оформление</legend>
+              <p class="settings-hint">Тема меняется сразу и запоминается в этом браузере.</p>
+              <div class="choice-row">
+                <label class="choice"><input type="radio" name="theme" value="hse"><span>ВШЭ</span></label>
+                <label class="choice"><input type="radio" name="theme" value="vit"><span>Вкусно и точка</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="settings-card">
+              <legend>Обновление и время</legend>
+              <label class="field">Проверять источники
+                <select class="select" name="sync">
+                  <option value="15">Каждые 15 минут</option>
+                  <option value="30">Каждые 30 минут</option>
+                  <option value="60">Раз в час</option>
+                </select>
+              </label>
+              <p class="settings-hint" id="settings-zone"></p>
+            </fieldset>
+            <div class="settings-actions">
+              <button class="button button-primary" type="submit">Сохранить</button>
+              <span class="settings-hint" id="settings-saved" role="status"></span>
             </div>
-          </section>
-        </div>
-        <footer class="page-footer">
-          <span>Планы помогают. Решения остаются за тобой.</span>
-          <span id="updated-at"></span>
-        </footer>
+          </form>
+        </section>
+
+        <section class="view" id="view-soon" data-view="soon" tabindex="-1" aria-labelledby="soon-title" hidden>
+          <div class="soon">
+            <div class="soon-copy">
+              <span class="badge-soon" id="soon-badge">После MVP</span>
+              <h1 class="view-title" id="soon-title"></h1>
+              <p class="view-lead" id="soon-lead"></p>
+              <ul class="soon-points" id="soon-points"></ul>
+              <a class="button button-ghost" href="#today">Вернуться к плану</a>
+            </div>
+            <svg class="soon-pattern" viewBox="0 0 280 280" aria-hidden="true">
+              <polygon style="--i: 0" points="20,280 110,40 150,40 60,280" fill="#163a8a"/>
+              <polygon style="--i: 1" points="80,280 170,40 190,40 100,280" fill="#0050cf"/>
+              <polygon style="--i: 2" points="120,280 210,40 250,40 160,280" fill="#ece8f8"/>
+              <polygon style="--i: 3" points="175,280 265,40 280,40 280,60 195,280" fill="#9985c5"/>
+              <polygon style="--i: 4" points="215,280 280,110 280,280" fill="#b3a5dc"/>
+            </svg>
+          </div>
+        </section>
       </div>
-      <noscript><p class="mode-notice">Для отображения заданий включите JavaScript.</p></noscript>
+
+      <footer class="page-footer">
+        <span id="updated-at"></span>
+      </footer>
     </main>
   </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <noscript><p class="mode-notice">Включи JavaScript, чтобы увидеть задания.</p></noscript>
 </body>
 </html>

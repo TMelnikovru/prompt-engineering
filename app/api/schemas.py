@@ -11,13 +11,18 @@ class PreviewScenario(StrEnum):
     ERROR = "error"
 
 
+SourceStatus = Literal["not_connected", "connected", "syncing", "partial", "error", "stale"]
+
+
 class Source(BaseModel):
     id: str
     name: str
     description: str
-    status: Literal["not_connected", "connected", "syncing", "partial", "error", "stale"]
+    status: SourceStatus
     last_synced_at: AwareDatetime | None = None
-    error_message: str | None = None
+    error_message: str | None = Field(
+        default=None, description="Сообщение для интерфейса; технический код здесь не показывается."
+    )
 
 
 class Evidence(BaseModel):

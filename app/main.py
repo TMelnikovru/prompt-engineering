@@ -35,7 +35,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         description=(
             "Контракт для разработки сайта учебного агента. "
-            "Живые интеграции, LLM и фоновые напоминания пока не реализованы."
+            "Вики ФКН, библиотека PostgreSQL и сохранённые результаты ИИ-обработки. "
+            "Персональные задания, план и напоминания ещё не формируются из вики."
         ),
     )
     application.state.settings = resolved_settings

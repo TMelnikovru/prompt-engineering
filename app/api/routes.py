@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __version__
-from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness
+from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
 from app.services.library import list_sources
 
@@ -58,12 +58,10 @@ async def dashboard(
         try:
             stored_sources = await list_sources(database)
             for stored in stored_sources:
-                for source in result.sources:
+                for index, source in enumerate(result.sources):
                     if source.id == stored["id"]:
-                        source.status = stored["status"]
-                        source.last_synced_at = stored["last_synced_at"]
-                        source.error_message = stored["last_error"]
-                if stored["document_count"]:
+                        result.sources[index] = Source.model_validate(stored)
+                if stored["kind"] == "wiki" and stored["document_count"]:
                     result.meta.mode = "live"
                     result.meta.notice = (
                         f"В библиотеке {stored['document_count']} страниц вики ФКН. "
