@@ -1,0 +1,33 @@
+[project]
+name = "hse-study-agent"
+version = "0.1.0"
+description = "Учебный агент ВШЭ: источники, дедлайны и план дня."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "jinja2>=3.1,<4",
+    "pydantic-settings>=2.6,<3",
+    "tzdata>=2025.1",
+    "uvicorn>=0.30,<1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27,<1",
+    "pytest>=8,<10",
+    "ruff>=0.11,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,0 +1,90 @@
+from datetime import date
+from enum import StrEnum
+from typing import Literal
+
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
+
+
+class PreviewScenario(StrEnum):
+    DEFAULT = "default"
+    EMPTY = "empty"
+    ERROR = "error"
+
+
+class Source(BaseModel):
+    id: str
+    name: str
+    description: str
+    status: Literal["not_connected", "connected", "syncing", "error", "stale"]
+    last_synced_at: AwareDatetime | None = None
+    error_message: str | None = None
+
+
+class Evidence(BaseModel):
+    source_id: str
+    title: str
+    quote: str
+    url: str | None = None
+    published_at: AwareDatetime | None = None
+
+
+class Task(BaseModel):
+    id: str
+    title: str
+    course: str
+    status: Literal["todo", "done"] = "todo"
+    priority: Literal["high", "medium", "low"]
+    due_at: AwareDatetime | None = Field(
+        default=None, description="Точный срок с часовым поясом, только если он известен."
+    )
+    due_date: date | None = Field(
+        default=None, description="Срок без известного времени. Не заменяется на 23:59."
+    )
+    estimated_minutes: int | None = Field(default=None, ge=1)
+    materials: list[str] = Field(default_factory=list)
+    evidence: list[Evidence]
+
+    @model_validator(mode="after")
+    def one_deadline_representation(self) -> "Task":
+        if self.due_at is not None and self.due_date is not None:
+            raise ValueError("Укажите due_at или due_date, но не оба сразу")
+        return self
+
+
+class PlanBlock(BaseModel):
+    task_id: str
+    starts_at: AwareDatetime
+    minutes: int = Field(ge=1)
+    reason: str
+
+
+class DayPlan(BaseModel):
+    date: date
+    available_minutes: int = Field(ge=0)
+    blocks: list[PlanBlock] = Field(default_factory=list)
+    unscheduled_task_ids: list[str] = Field(default_factory=list)
+    note: str
+
+
+class DashboardMeta(BaseModel):
+    mode: Literal["demo", "unconfigured", "live"]
+    generated_at: AwareDatetime
+    timezone: str
+    notice: str
+
+
+class Dashboard(BaseModel):
+    meta: DashboardMeta
+    tasks: list[Task]
+    sources: list[Source]
+    plan: DayPlan
+
+
+class ApiErrorDetail(BaseModel):
+    code: str
+    message: str
+    retryable: bool = False
+
+
+class ApiError(BaseModel):
+    error: ApiErrorDetail

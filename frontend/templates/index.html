@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Учебный агент: задания, дедлайны и понятный план дня.">
+  <title>Учебный агент · Вышка</title>
+  <link rel="icon" href="{{ url_for('static', path='/favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+  <script type="module" src="{{ url_for('static', path='/js/app.js') }}"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">К содержимому</a>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="Учебный агент — обзор">
+        <span class="brand-mark" aria-hidden="true">у.</span>
+        <span>учебный агент<small>для студентов Вышки</small></span>
+      </a>
+      <div class="nav-caption">МОЯ УЧЁБА</div>
+      <nav class="navigation" aria-label="Основная навигация">
+        <a href="#overview" data-nav="overview" aria-current="page">
+          <svg aria-hidden="true"><use href="/static/icons.svg#overview"></use></svg>Обзор
+        </a>
+        <a href="#tasks" data-nav="tasks">
+          <svg aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания
+          <span class="nav-count" id="nav-task-count">—</span>
+        </a>
+        <a href="#sources" data-nav="sources">
+          <svg aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники
+        </a>
+      </nav>
+      <div class="sidebar-note">
+        <span class="small-star" aria-hidden="true">✳</span>
+        <p>Большая учёба.<br>Маленькие понятные шаги.</p>
+      </div>
+      <div class="sidebar-footer">Сначала — самое важное.</div>
+    </aside>
+
+    <main id="main" class="main" tabindex="-1">
+      <header class="topbar">
+        <span class="breadcrumb">Мой учебный день</span>
+        <div class="topbar-actions">
+          <time id="today-label"></time>
+          <button class="button button-secondary" id="refresh-button" type="button">
+            <svg aria-hidden="true"><use href="/static/icons.svg#refresh"></use></svg>
+            <span>Обновить</span>
+          </button>
+        </div>
+      </header>
+
+      <div id="mode-notice" class="mode-notice" role="status" hidden>
+        <span class="notice-dot" aria-hidden="true"></span>
+        <span id="mode-notice-text"></span>
+      </div>
+
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow" id="page-eyebrow">ФОКУС НА СЕГОДНЯ</p>
+          <h1 id="page-title">Понятно, с чего начать.</h1>
+          <p class="page-description" id="page-description">
+            Задания, материалы и план на день — в одном месте.
+          </p>
+        </div>
+        <span class="heading-decoration" aria-hidden="true">↗</span>
+      </section>
+
+      <div id="load-state" class="load-state" role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <h2 id="load-title">Загружаем учебный день</h2>
+        <p id="load-description">Сейчас здесь появятся задания и план.</p>
+        <button id="retry-button" class="button button-primary" type="button" hidden>
+          Попробовать ещё раз
+        </button>
+      </div>
+
+      <div id="dashboard-content" hidden>
+        <section class="stats-grid" data-views="overview" aria-label="Краткая сводка">
+          <article class="stat-card">
+            <span class="stat-label">Задания в работе</span>
+            <strong id="stat-tasks">0</strong>
+            <span class="stat-description">Всё, что требует внимания</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Дедлайн сегодня<span class="orange-dot"></span></span>
+            <strong id="stat-today">0</strong>
+            <span class="stat-description">Начнём с ближайших сроков</span>
+          </article>
+          <article class="stat-card stat-accent">
+            <span class="stat-label">Время в плане</span>
+            <strong><span id="stat-minutes">0</span><small>мин</small></strong>
+            <span class="stat-description" id="stat-budget">Из доступного времени</span>
+          </article>
+        </section>
+
+        <div class="workspace-grid">
+          <section class="panel tasks-panel" data-views="overview tasks">
+            <div class="panel-heading">
+              <div><p class="eyebrow">ДЕРЖИМ В ПОЛЕ ЗРЕНИЯ</p><h2>Ближайшие задания</h2></div>
+              <span class="count-badge" id="task-count">0</span>
+            </div>
+            <div class="task-filters" role="group" aria-label="Фильтр заданий">
+              <button type="button" data-filter="all" aria-pressed="true">Все</button>
+              <button type="button" data-filter="today" aria-pressed="false">На сегодня</button>
+              <button type="button" data-filter="no-deadline" aria-pressed="false">Без срока</button>
+            </div>
+            <ul id="task-list" class="task-list"></ul>
+            <div class="empty-state" id="tasks-empty" hidden>
+              <span aria-hidden="true">↗</span>
+              <h3>Здесь пока свободно</h3>
+              <p id="tasks-empty-text">Для выбранного фильтра заданий нет.</p>
+            </div>
+            <div class="panel-footer">Открой задание, чтобы увидеть материалы и источник срока.</div>
+          </section>
+
+          <section class="panel plan-panel" data-views="overview">
+            <div class="panel-heading">
+              <div><p class="eyebrow">ПО ОДНОМУ ШАГУ</p><h2>План на сегодня</h2></div>
+              <svg class="panel-icon" aria-hidden="true"><use href="/static/icons.svg#spark"></use></svg>
+            </div>
+            <div class="plan-budget">
+              <div><span>Учебная нагрузка</span><strong id="plan-budget-label"></strong></div>
+              <meter id="plan-meter" min="0" max="120" value="0" aria-label="Минуты в плане"></meter>
+            </div>
+            <ol id="plan-list" class="plan-list"></ol>
+            <div class="empty-state" id="plan-empty" hidden>
+              <h3>Начнём с заданий</h3><p>Когда они появятся, здесь будет план дня.</p>
+            </div>
+            <p class="plan-note" id="plan-note"></p>
+          </section>
+
+          <section class="panel sources-panel" data-views="overview sources">
+            <div class="panel-heading">
+              <div><p class="eyebrow">ОТКУДА ПРИХОДЯТ ДАННЫЕ</p><h2>Твои источники</h2></div>
+              <span class="source-total" id="source-total"></span>
+            </div>
+            <ul id="source-list" class="source-list"></ul>
+            <div class="panel-footer">
+              PDF и другие учебные материалы поступают из подключённых источников.
+            </div>
+          </section>
+        </div>
+        <footer class="page-footer">
+          <span>Планы помогают. Решения остаются за тобой.</span>
+          <span id="updated-at"></span>
+        </footer>
+      </div>
+      <noscript><p class="mode-notice">Для отображения заданий включите JavaScript.</p></noscript>
+    </main>
+  </div>
+</body>
+</html>
