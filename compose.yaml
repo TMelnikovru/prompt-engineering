@@ -43,6 +43,11 @@ services:
       HSE_TELEGRAM_PDF_MAX_BYTES: ${HSE_TELEGRAM_PDF_MAX_BYTES:-}
       HSE_TELEGRAM_PDF_MAX_PAGES: ${HSE_TELEGRAM_PDF_MAX_PAGES:-}
       HSE_TELEGRAM_PDF_MAX_CHARS: ${HSE_TELEGRAM_PDF_MAX_CHARS:-}
+      HSE_DSBA_BASE_URL: ${HSE_DSBA_BASE_URL:-}
+      HSE_DSBA_REQUEST_TIMEOUT: ${HSE_DSBA_REQUEST_TIMEOUT:-}
+      HSE_DSBA_MAX_RECORDS: ${HSE_DSBA_MAX_RECORDS:-}
+      HSE_DSBA_MAX_PROFILES: ${HSE_DSBA_MAX_PROFILES:-}
+      HSE_DSBA_INTERVAL_SECONDS: ${HSE_DSBA_INTERVAL_SECONDS:-}
     volumes:
       - telegram_sessions:/app/.sessions
     depends_on:
@@ -84,6 +89,13 @@ services:
     environment: *app-environment
     volumes:
       - telegram_sessions:/app/.sessions
+
+  dsba-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.dsba, worker]
+    environment: *app-environment
     depends_on:
       postgres:
         condition: service_healthy

@@ -7,6 +7,7 @@ SOURCE_CATALOG = (
     ("elk", "ЕЛК", "Личный кабинет студента"),
     ("telegram", "Telegram", "Выбранные учебные чаты и каналы"),
     ("wiki", "Вики ФКН", "Страницы курсов и учебные материалы"),
+    ("dsba", "DSBA Online", "Материалы и дедлайны выбранной программы и группы"),
 )
 
 
@@ -20,6 +21,8 @@ def source_description(kind: str) -> str:
 def source_error_message(code: str | None) -> str | None:
     if code is None:
         return None
+    if code == "dsba_record_limit":
+        return "Получены не все записи: достигнут настроенный лимит."
     if code.endswith("_timeout"):
         return "Источник долго не отвечает. Повторим попытку автоматически."
     if code.endswith("_network_error"):

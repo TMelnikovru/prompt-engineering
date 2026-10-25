@@ -64,6 +64,7 @@ class DocumentDetail(BaseModel):
     fetched_at: datetime
     last_seen_at: datetime
     version_count: int
+    is_active: bool = True
     analysis: dict[str, Any] | None = None
 
 
@@ -100,21 +101,36 @@ def operator_error(request: Request, token: str | None) -> JSONResponse | None:
     return None
 
 
-@router.get("/sources", response_model=list[SourceView], responses=ERRORS)
+# Личная переписка: записи и состояние этих источников видны только оператору.
+# Публичные источники (вики ФКН, DSBA) читаются без ключа, как их использует сайт.
+PRIVATE_SOURCE_IDS = frozenset({"telegram"})
+
+
+@router.get(
+    "/sources",
+    response_model=list[SourceView],
+    responses=ERRORS,
+    description="Без X-Ingestion-Token возвращает только публичные источники, без Telegram.",
+)
 async def sources(request: Request, x_ingestion_token: Annotated[str | None, Header()] = None):
-    denied = operator_error(request, x_ingestion_token)
-    if denied is not None:
-        return denied
     database = request.app.state.database
     if database is None:
         return error(503, "database_not_configured", "База данных не настроена.")
     try:
-        return await list_sources(database)
+        result = await list_sources(database)
     except SQLAlchemyError:
         return error(503, "database_unavailable", "Хранилище источников недоступно.")
+    if operator_error(request, x_ingestion_token) is not None:
+        result = [source for source in result if source["id"] not in PRIVATE_SOURCE_IDS]
+    return result
 
 
-@router.get("/documents", response_model=DocumentList, responses=ERRORS)
+@router.get(
+    "/documents",
+    response_model=DocumentList,
+    responses=ERRORS,
+    description="Записи Telegram требуют X-Ingestion-Token; вики и DSBA доступны без него.",
+)
 async def documents(
     request: Request,
     source_id: str = "wiki",
@@ -122,9 +138,10 @@ async def documents(
     offset: Annotated[int, Query(ge=0)] = 0,
     x_ingestion_token: Annotated[str | None, Header()] = None,
 ):
-    denied = operator_error(request, x_ingestion_token)
-    if denied is not None:
-        return denied
+    if source_id in PRIVATE_SOURCE_IDS:
+        denied = operator_error(request, x_ingestion_token)
+        if denied is not None:
+            return denied
     database = request.app.state.database
     if database is None:
         return error(503, "database_not_configured", "База данных не настроена.")
@@ -138,6 +155,7 @@ async def documents(
     "/documents/{document_id}",
     response_model=DocumentDetail,
     responses={**ERRORS, 404: {"model": ApiError}},
+    description="Записи Telegram требуют X-Ingestion-Token; вики и DSBA доступны без него.",
 )
 async def document(
     request: Request,
@@ -145,18 +163,19 @@ async def document(
     x_ingestion_token: Annotated[str | None, Header()] = None,
 ):
     denied = operator_error(request, x_ingestion_token)
-    if denied is not None:
-        return denied
     database = request.app.state.database
     if database is None:
-        return error(503, "database_not_configured", "База данных не настроена.")
+        # Без хранилища нельзя убедиться, что запись публичная.
+        return denied or error(503, "database_not_configured", "База данных не настроена.")
     try:
         result = await get_document(database, document_id)
-        if result is None:
-            return error(404, "document_not_found", "Документ не найден.")
-        return result
     except SQLAlchemyError:
         return error(503, "database_unavailable", "Хранилище документов недоступно.")
+    if result is not None and result["source_id"] in PRIVATE_SOURCE_IDS and denied is not None:
+        return denied
+    if result is None:
+        return error(404, "document_not_found", "Документ не найден.")
+    return result
 
 
 @router.post(

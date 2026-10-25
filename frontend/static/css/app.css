@@ -1,4 +1,12 @@
 /* Учебный агент ВШЭ. Цвета и шрифт — по брендбуку hse.ru/info/brandbook. */
+.dsba-connection { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.dsba-connection summary { cursor: pointer; font-weight: 600; }
+.dsba-connection p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.dsba-connection fieldset { border: 0; padding: 0; margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.dsba-connection label { display: grid; gap: 6px; flex: 1 1 140px; font-size: 14px; }
+.dsba-connection select { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.dsba-connection ul { padding-left: 20px; font-size: 14px; line-height: 1.7; max-height: 340px; overflow: auto; }
+.deadline-change { padding: 10px; border-radius: 8px; background: var(--sky-100); font-size: 14px; }
 @font-face { font-family: "HSE Sans"; src: url("../fonts/HSESans-Thin.woff2") format("woff2"); font-weight: 100; font-display: swap; }
 @font-face { font-family: "HSE Sans"; src: url("../fonts/HSESans-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "HSE Sans"; src: url("../fonts/HSESans-SemiBold.woff2") format("woff2"); font-weight: 600; font-display: swap; }

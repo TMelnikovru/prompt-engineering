@@ -50,7 +50,7 @@ def test_migrations_upgrade_downgrade_and_upgrade_again(database_url):
         try:
             async with database.session() as session:
                 version = await session.scalar(text("SELECT version_num FROM alembic_version"))
-                assert version == "0002_ingestion_store"
+                assert version == "0003_active_documents"
         finally:
             await database.close()
 

@@ -1,5 +1,6 @@
 import { fetchDashboard } from "./api.js";
 import { sourceStatusLabel, sourceNeedsAttention } from "./source-status.js";
+import { savedDsbaSelection, setupDsba } from "./dsba.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -43,6 +44,7 @@ const priorityLabels = { high: "высокий", medium: "средний", low: 
 
 const state = {
   dashboard: null,
+  dsbaSourceId: savedDsbaSelection()?.source_id || null,
   filter: "all",
   course: "",
   view: null,
@@ -132,6 +134,7 @@ function duration(minutes) {
 
 /* Срок: точное время, только дата или неизвестно. Дату без времени не превращаем в 23:59. */
 function deadline(task) {
+  if (task.due_requires_confirmation) return { kind: "unknown", day: null, time: null };
   if (task.due_at) return { kind: "exact", day: dateKey(task.due_at), time: clock(task.due_at) };
   if (task.due_date) return { kind: "date", day: task.due_date, time: null };
   return { kind: "unknown", day: null, time: null };
@@ -142,6 +145,7 @@ function deadlineSignature(task) {
 }
 
 function deadlineText(task, { long = false } = {}) {
+  if (task.due_requires_confirmation) return "Срок требует уточнения";
   const due = deadline(task);
   if (due.kind === "unknown") return "Срок не указан";
   const today = state.dashboard.plan.date;
@@ -476,6 +480,12 @@ function duePanel(task) {
   const due = deadline(task);
   const change = changeFor(task);
   const panel = node("div", "due-panel");
+  if (task.due_requires_confirmation) {
+    panel.classList.add("is-unknown");
+    panel.append(node("strong", "due-new", "Источник сообщает противоречивые сроки"));
+    panel.append(node("span", "due-zone", "Обе версии сохранены в подтверждении ниже. Уточни срок."));
+    return panel;
+  }
   if (due.kind === "unknown" && !change) {
     panel.classList.add("is-unknown");
     panel.append(node("span", "due-label", "Срок"), node("strong", "due-new", "Не указан в источнике"));
@@ -524,6 +534,9 @@ function evidenceBlock(task) {
     }
     if (entry.published_at) {
       caption.append(document.createTextNode(" · опубликовано " + dayMonth(dateKey(entry.published_at)) + ", " + clock(entry.published_at)));
+    }
+    if (entry.fetched_at) {
+      caption.append(document.createTextNode(" · получено " + dayMonth(dateKey(entry.fetched_at)) + ", " + clock(entry.fetched_at)));
     }
     figure.append(caption);
     wrap.append(figure);
@@ -596,6 +609,7 @@ function taskCard(task) {
 
   const body = node("div", "task-body");
   body.append(duePanel(task), evidenceBlock(task));
+  if (task.deadline_changed) body.prepend(node("p", "deadline-change", task.deadline_changed));
   if (task.materials.length) {
     const materials = node("div", "evidence-list");
     materials.append(node("h3", "section-label", "Материалы"), materialList(task));
@@ -825,7 +839,7 @@ async function loadDashboard() {
   setSync("loading", "Обновляем…");
   try {
     const scenario = new URLSearchParams(location.search).get("scenario") || "default";
-    state.dashboard = await fetchDashboard(scenario);
+    state.dashboard = await fetchDashboard(scenario, state.dsbaSourceId);
     detectChanges(state.dashboard.tasks);
     $("#load-error").hidden = true;
     renderAll();
@@ -965,4 +979,11 @@ window.addEventListener("offline", () => {
 });
 window.addEventListener("online", loadDashboard);
 document.fonts?.ready.then(moveIndicator);
+setupDsba(async (sourceId) => {
+  state.dsbaSourceId = sourceId;
+  await loadDashboard();
+});
+setInterval(() => {
+  if (state.dsbaSourceId && !document.hidden) loadDashboard();
+}, 60000);
 loadDashboard();

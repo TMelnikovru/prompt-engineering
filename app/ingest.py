@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
 from app.connectors.wiki import WikiBatch
-from app.db.models import AiArtifact, DocumentVersion, SourceDocument
+from app.db.models import AiArtifact, DocumentVersion, IngestionSource, SourceDocument
 from app.db.session import Database
 from app.services.analysis import (
     PROMPT_VERSION,
@@ -35,7 +35,12 @@ async def analyze_pending(database: Database, settings: Settings, limit: int) ->
             await session.execute(
                 select(SourceDocument.id, DocumentVersion.id, DocumentVersion.content_hash)
                 .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
-                .where(SourceDocument.source_id == "wiki")
+                .join(IngestionSource, SourceDocument.source_id == IngestionSource.id)
+                # DSBA уже даёт структурированные сроки; Telegram анализируется целой перепиской.
+                .where(
+                    IngestionSource.kind.not_in(("dsba", "telegram")),
+                    SourceDocument.is_active.is_(True),
+                )
                 .order_by(SourceDocument.title, SourceDocument.id)
             )
         ).all()

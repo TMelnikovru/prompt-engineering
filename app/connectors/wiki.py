@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field
 
 from app.config import Settings
-from app.connectors.base import SourceRecord
+from app.connectors.base import DocumentRecord, SourceRecord
 
 
 class WikiError(Exception):
@@ -23,12 +23,8 @@ class WikiError(Exception):
         super().__init__(code)
 
 
-class WikiPage(SourceRecord):
-    raw_content: str
-    revision_key: str
-    content_hash: str
+class WikiPage(DocumentRecord):
     linked_titles: list[str] = Field(default_factory=list)
-    links: list[dict[str, str]] = Field(default_factory=list)
 
 
 class WikiBatch(BaseModel):

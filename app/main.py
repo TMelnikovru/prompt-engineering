@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app import __version__
+from app.api.dsba import router as dsba_router
 from app.api.ingestion import router as ingestion_router
 from app.api.routes import router
 from app.config import Settings
@@ -35,15 +36,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         description=(
             "Контракт для разработки сайта учебного агента. "
-            "Вики ФКН, сводки Telegram, библиотека PostgreSQL и сохранённые результаты "
-            "ИИ-обработки. Доступ к библиотеке требует X-Ingestion-Token. "
+            "Вики ФКН, DSBA Online по выбранной группе, сводки Telegram, "
+            "библиотека PostgreSQL и сохранённые результаты ИИ-обработки. "
+            "Доступ к библиотеке требует X-Ingestion-Token. "
             "Готовность живых подключений зависит от настройки и последней синхронизации. "
-            "Персональные задания, план и напоминания ещё не формируются из источников."
+            "Персональные задания, план и напоминания ещё не формируются из вики и Telegram."
         ),
     )
     application.state.settings = resolved_settings
     application.state.database = None
     application.include_router(router)
+    application.include_router(dsba_router)
     application.include_router(ingestion_router)
     application.mount("/static", StaticFiles(directory=ROOT / "frontend" / "static"), name="static")
     templates = Jinja2Templates(directory=ROOT / "frontend" / "templates")

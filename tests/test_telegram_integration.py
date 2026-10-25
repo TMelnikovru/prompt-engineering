@@ -136,6 +136,11 @@ def test_telegram_persistence_restart_edits_context_and_isolated_chat_failure(
     with TestClient(create_app(settings)) as api:
         headers = {"X-Ingestion-Token": "test-operator"}
         assert api.get("/api/v1/documents?source_id=telegram").status_code == 401
+        assert api.get("/api/v1/documents/" + str(document_id)).status_code == 401
+        public = [source["id"] for source in api.get("/api/v1/sources").json()]
+        assert "telegram" not in public
+        private = [s["id"] for s in api.get("/api/v1/sources", headers=headers).json()]
+        assert "telegram" in private
         documents = api.get("/api/v1/documents?source_id=telegram", headers=headers).json()
         assert documents["total"] == 4
         detail = api.get("/api/v1/documents/" + str(document_id), headers=headers).json()

@@ -16,7 +16,7 @@ async def list_sources(database: Database) -> list[dict]:
             count, last_seen = (
                 await session.execute(
                     select(func.count(), func.max(SourceDocument.last_seen_at)).where(
-                        SourceDocument.source_id == source.id
+                        SourceDocument.source_id == source.id, SourceDocument.is_active.is_(True)
                     )
                 )
             ).one()
@@ -82,13 +82,13 @@ async def list_documents(database: Database, source_id: str, limit: int, offset:
         total = await session.scalar(
             select(func.count())
             .select_from(SourceDocument)
-            .where(SourceDocument.source_id == source_id)
+            .where(SourceDocument.source_id == source_id, SourceDocument.is_active.is_(True))
         )
         rows = (
             await session.execute(
                 select(SourceDocument, DocumentVersion)
                 .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
-                .where(SourceDocument.source_id == source_id)
+                .where(SourceDocument.source_id == source_id, SourceDocument.is_active.is_(True))
                 .order_by(SourceDocument.last_seen_at.desc(), SourceDocument.id)
                 .limit(limit)
                 .offset(offset)
@@ -150,6 +150,7 @@ async def get_document(database: Database, document_id: UUID) -> dict | None:
             "fetched_at": version.fetched_at,
             "last_seen_at": doc.last_seen_at,
             "version_count": version_count,
+            "is_active": doc.is_active,
             "analysis": {
                 "id": str(analysis.id),
                 "model": analysis.model,

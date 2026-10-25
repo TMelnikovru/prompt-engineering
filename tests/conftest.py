@@ -37,7 +37,7 @@ def upstreams():
     processes = []
     urls = {}
     try:
-        for name in ("fkn-wiki", "openai"):
+        for name in ("fkn-wiki", "openai", "dsba"):
             path = Path("postman/mocks") / name / "default.js"
             process = subprocess.Popen(
                 ["node", str(path)],

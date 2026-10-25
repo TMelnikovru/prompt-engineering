@@ -139,8 +139,8 @@ def test_pdf_invalid_and_scanned_documents_are_explicit():
 def test_private_library_requires_operator_token_before_database_access():
     settings = Settings(_env_file=None, ingestion_token="local-test-token")
     with TestClient(create_app(settings)) as api:
+        # /sources без ключа отдаёт только публичные источники; это проверяет интеграционный тест.
         for path in (
-            "/sources",
             "/documents?source_id=telegram",
             "/documents/00000000-0000-0000-0000-000000000001",
             "/knowledge/summary",

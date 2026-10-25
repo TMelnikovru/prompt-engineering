@@ -78,9 +78,11 @@ pip-вариант: `uv export --frozen --no-dev --no-hashes --no-header -o requ
 Без них интеграция не считается подключённой.
 Настройка, команды и ограничения: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 
-API библиотеки (`/sources`, `/documents`, `/knowledge/*`) теперь требует
-`X-Ingestion-Token`: Telegram может содержать личные данные. Токен не встраивается
-в код сайта и не сохраняется браузером; оператор вводит его на странице сводки.
+Записи Telegram в библиотеке (`/documents?source_id=telegram`, их `/documents/{id}`),
+источник `telegram` в `/sources` и `/knowledge/*` требуют `X-Ingestion-Token`:
+переписка может содержать личные данные. Публичные вики и DSBA читаются без ключа.
+Токен не встраивается в код сайта и не сохраняется браузером; оператор вводит его
+на странице сводки.
 
 ### PostgreSQL
 
@@ -99,6 +101,8 @@ API библиотеки (`/sources`, `/documents`, `/knowledge/*`) теперь
 
 Рабочее развёртывание на `docker-prod`, PostgreSQL и автоматическое обновление
 из `main`: [инструкция](docs/DEPLOYMENT.md). Прокси настраивается отдельно.
+
+DSBA Online: [подключение через фронтенд и контракт API](docs/DSBA.md).
 
 ~~~sh
 docker build -t hse-study-agent .

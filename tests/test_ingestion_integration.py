@@ -60,12 +60,9 @@ def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url
             assert (await list_sources(database))[0]["scope"]["transport"] == "collector"
             assert (await list_sources(database))[0]["status"] == "partial"
             # The main frontend must consume the same source fields from either endpoint.
-            # The library endpoint is operator-only; the dashboard stays public.
+            # Public sources such as the wiki need no operator token.
             with TestClient(create_app(settings)) as api:
-                assert api.get("/api/v1/sources").status_code == 401
-                stored = api.get(
-                    "/api/v1/sources", headers={"X-Ingestion-Token": "operator-simulation"}
-                ).json()[0]
+                stored = api.get("/api/v1/sources").json()[0]
                 shown = next(
                     item
                     for item in api.get("/api/v1/dashboard").json()["sources"]

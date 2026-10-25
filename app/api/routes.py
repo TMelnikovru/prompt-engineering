@@ -1,12 +1,13 @@
 import asyncio
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __version__
 from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
+from app.services.dsba import dsba_tasks
 from app.services.library import list_sources
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
@@ -17,8 +18,9 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
     response_model=Dashboard,
     summary="Задания, план дня и состояния источников",
     description=(
-        "Каркас API для фронтенда. По умолчанию возвращает явно помеченные учебные примеры. "
-        "При HSE_DEMO_MODE=false возвращает пустые данные и mode=unconfigured. "
+        "Задания и состояния источников. dsba_source_id выбирает только подключённую "
+        "учебную группу DSBA; без него её задания не показываются. "
+        "По умолчанию разработки возвращает явно помеченные учебные примеры. "
         "scenario=empty и scenario=error доступны только в демо-режиме."
     ),
     responses={
@@ -29,6 +31,7 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 async def dashboard(
     request: Request,
     scenario: PreviewScenario = PreviewScenario.DEFAULT,
+    dsba_source_id: str | None = Query(default=None, pattern=r"^dsba:[0-9a-f]{32}$"),
 ) -> Dashboard | JSONResponse:
     settings = request.app.state.settings
     if not settings.demo_mode and scenario != PreviewScenario.DEFAULT:
@@ -57,17 +60,26 @@ async def dashboard(
     if database is not None and not settings.demo_mode:
         try:
             stored_sources = await list_sources(database)
-            for stored in stored_sources:
+            visible = [
+                s for s in stored_sources if s["kind"] != "dsba" or s["id"] == dsba_source_id
+            ]
+            for stored in visible:
                 for index, source in enumerate(result.sources):
-                    if source.id == stored["id"]:
+                    if source.id == stored["id"] or (
+                        source.id == "dsba" and stored["id"] == dsba_source_id
+                    ):
                         result.sources[index] = Source.model_validate(stored)
-                if stored["kind"] == "wiki" and stored["document_count"]:
-                    result.meta.mode = "live"
-                    result.meta.notice = (
-                        f"В библиотеке есть данные источника «{stored['name']}» "
-                        f"({stored['document_count']} записей). "
-                        "Принадлежность заданий вашему курсу ещё не определена."
-                    )
+            if dsba_source_id:
+                result.tasks = await dsba_tasks(database, dsba_source_id)
+                result.plan.note = "Задания получены из DSBA. План дня ещё не рассчитан."
+            total = sum(s["document_count"] for s in visible)
+            if total or result.tasks or any(s["status"] == "connected" for s in visible):
+                result.meta.mode = "live"
+                result.meta.notice = (
+                    f"В библиотеке {total} записей из подключённых источников. "
+                    "Задания DSBA относятся к выбранной группе. Приоритеты — рекомендации. "
+                    "Страницы вики ещё не назначены вашему курсу."
+                )
         except SQLAlchemyError:
             result.meta.notice = "Хранилище источников временно недоступно."
     return result

@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     wiki_request_delay: float = Field(default=0.25, ge=0, le=30)
     wiki_interval_seconds: int = Field(default=900, ge=60)
     wiki_retry_seconds: int = Field(default=60, ge=1)
+    dsba_base_url: str = "https://dsba.online"
+    dsba_request_timeout: float = Field(default=20, ge=0.05, le=60)
+    dsba_max_records: int = Field(default=1000, ge=1, le=5000)
+    dsba_max_profiles: int = Field(default=40, ge=1, le=200)
+    dsba_interval_seconds: int = Field(default=900, ge=60)
     ingestion_token: SecretStr | None = Field(default=None, repr=False)
     telegram_api_id: int | None = Field(default=None, gt=0, repr=False)
     telegram_api_hash: SecretStr | None = Field(default=None, repr=False)
@@ -67,7 +72,7 @@ class Settings(BaseSettings):
 
         return list(dict.fromkeys(normalize_chat_ref(item) for item in value))
 
-    @field_validator("wiki_api_url", "openai_base_url")
+    @field_validator("wiki_api_url", "openai_base_url", "dsba_base_url")
     @classmethod
     def valid_http_endpoint(cls, value: str) -> str:
         from urllib.parse import urlsplit
