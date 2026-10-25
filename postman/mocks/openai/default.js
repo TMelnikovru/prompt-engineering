@@ -41,6 +41,19 @@ const server = http.createServer(async (req, res) => {
         evidence_quote: mode === "bad-evidence" ? "Такой цитаты в источнике нет." : quote,
       }] : [],
     };
+  } else if (data.text.format.name === "TelegramDigest") {
+    const message = input.messages.find((item) => item.text.includes("Домашняя работа")) || input.messages[0];
+    const quote = message.text;
+    result = {
+      summary: "В учебном чате обсуждают домашнюю работу.",
+      topics: [{ text: "Обсуждение учебных задач", message_ids: [message.message_id] }],
+      agreements: [], open_questions: [], conflicts: [],
+      assignments: [{
+        title: "Домашняя работа", due_text: null,
+        evidence_quote: mode === "bad-evidence" ? "Выдуманная цитата" : quote,
+        message_id: mode === "bad-citation" ? "unknown:999" : message.message_id,
+      }],
+    };
   } else {
     result = {
       summary: "Сводка подготовленных учебных материалов.",

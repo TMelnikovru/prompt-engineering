@@ -3,9 +3,30 @@ import os
 import select
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+from app.db.url import postgresql_url
+
+
+@pytest.fixture
+def ingestion_url():
+    value = os.getenv("HSE_TEST_DATABASE_URL")
+    if not value:
+        pytest.skip("Нужна отдельная PostgreSQL БД через HSE_TEST_DATABASE_URL")
+    if not postgresql_url(value).database.endswith("_test"):
+        pytest.fail("Разрешена только отдельная БД с суффиксом _test")
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        env={**os.environ, "HSE_DATABASE_URL": value},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return value
 
 
 @pytest.fixture

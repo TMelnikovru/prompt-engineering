@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telegram · Учебный агент</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/telegram.css">
+  <script type="module" src="/static/js/telegram.js"></script>
+</head>
+<body>
+  <main class="telegram-main">
+    <a href="/">← Мой учебный день</a>
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">УЧЕБНАЯ ПЕРЕПИСКА</p>
+        <h1>Что происходит в чатах.</h1>
+        <p class="page-description">Темы, договорённости и задания со ссылками на сообщения.</p>
+      </div>
+    </header>
+    <form id="access-form" class="panel telegram-access">
+      <label for="access-token">Ключ доступа к учебным данным</label>
+      <div class="telegram-actions">
+        <input id="access-token" type="password" autocomplete="off" required
+               placeholder="Ключ оператора сайта">
+        <button class="button button-primary" type="submit">Открыть сводку</button>
+      </div>
+      <p>Ключ хранится в памяти этой вкладки до её закрытия.</p>
+    </form>
+    <div class="telegram-actions" id="controls" hidden>
+      <button class="button button-primary" id="refresh" type="button">Прочитать чаты и обновить сводку</button>
+      <button class="button button-secondary" id="reload" type="button">Показать сохранённую</button>
+      <button class="button button-secondary" id="logout" type="button">Закрыть доступ</button>
+    </div>
+    <p id="feedback" role="status" aria-live="polite">Войдите, чтобы увидеть сохранённую сводку.</p>
+    <section id="connection" class="panel telegram-panel" hidden aria-label="Состояние Telegram"></section>
+    <section id="digest" class="panel telegram-panel" hidden aria-label="ИИ-сводка"></section>
+  </main>
+</body>
+</html>

@@ -19,7 +19,8 @@ async def list_sources(database: Database) -> list[dict]:
                     )
                 )
             ).one()
-            expired = last_seen is not None and last_seen < (
+            refreshed_at = source.last_synced_at or last_seen
+            expired = refreshed_at is not None and refreshed_at < (
                 datetime.now(UTC)
                 - timedelta(seconds=2 * source.config.get("interval_seconds", 900))
             )
@@ -35,7 +36,7 @@ async def list_sources(database: Database) -> list[dict]:
                 else "stale"
                 if expired
                 else "partial"
-                if run and run.status == "partial" and count
+                if run and run.status == "partial"
                 else "stale"
                 if source.last_error and count
                 else "error"

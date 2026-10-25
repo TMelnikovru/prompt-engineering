@@ -1,7 +1,4 @@
 import asyncio
-import os
-import subprocess
-import sys
 from argparse import Namespace
 from contextlib import suppress
 
@@ -14,7 +11,6 @@ from app.config import Settings
 from app.connectors.wiki import collect_wiki
 from app.db.models import AiArtifact, DocumentVersion, SourceDocument
 from app.db.session import Database
-from app.db.url import postgresql_url
 from app.ingest import run_worker
 from app.main import create_app
 from app.services.analysis import AiError, analyze_document, summarize
@@ -22,24 +18,6 @@ from app.services.ingestion import SyncBusy, ingestion_lock, sync_wiki
 from app.services.library import list_sources
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture
-def ingestion_url():
-    value = os.getenv("HSE_TEST_DATABASE_URL")
-    if not value:
-        pytest.skip("Нужна отдельная PostgreSQL БД через HSE_TEST_DATABASE_URL")
-    if not postgresql_url(value).database.endswith("_test"):
-        pytest.fail("Разрешена только отдельная БД с суффиксом _test")
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        env={**os.environ, "HSE_DATABASE_URL": value},
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    return value
 
 
 def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url, upstreams):
@@ -129,9 +107,10 @@ def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url
 
     doc_id = asyncio.run(run())
     with TestClient(create_app(settings)) as api:
-        listed = api.get("/api/v1/documents?limit=1").json()
+        headers = {"X-Ingestion-Token": "operator-simulation"}
+        listed = api.get("/api/v1/documents?limit=1", headers=headers).json()
         assert listed["total"] == 2 and len(listed["items"]) == 1
-        detail = api.get("/api/v1/documents/" + str(doc_id)).json()
+        detail = api.get("/api/v1/documents/" + str(doc_id), headers=headers).json()
         assert detail["version_count"] == 4
         assert "28 октября" in detail["content_text"]
         assert api.get("/api/v1/dashboard").json()["meta"]["mode"] == "live"

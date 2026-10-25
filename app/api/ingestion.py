@@ -12,8 +12,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.schemas import ApiError
 from app.db.models import AiArtifact
+from app.services.analysis import AiError
 from app.services.ingestion import SyncBusy, sync_wiki
 from app.services.library import get_document, list_documents, list_sources
+from app.services.telegram import latest_telegram_digest, summarize_telegram, sync_telegram
 
 router = APIRouter(prefix="/api/v1", tags=["knowledge"])
 
@@ -83,11 +85,26 @@ def error(status: int, code: str, message: str) -> JSONResponse:
     )
 
 
-ERRORS = {503: {"model": ApiError, "description": "PostgreSQL не настроен или недоступен"}}
+ERRORS = {
+    401: {"model": ApiError, "description": "Нужен серверный X-Ingestion-Token"},
+    503: {"model": ApiError, "description": "Хранилище или доступ не настроены"},
+}
+
+
+def operator_error(request: Request, token: str | None) -> JSONResponse | None:
+    expected = request.app.state.settings.ingestion_token
+    if expected is None:
+        return error(503, "ingestion_disabled", "Доступ к библиотеке не настроен.")
+    if not token or not hmac.compare_digest(token.encode(), expected.get_secret_value().encode()):
+        return error(401, "invalid_ingestion_token", "Нет доступа к учебным данным.")
+    return None
 
 
 @router.get("/sources", response_model=list[SourceView], responses=ERRORS)
-async def sources(request: Request):
+async def sources(request: Request, x_ingestion_token: Annotated[str | None, Header()] = None):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
     database = request.app.state.database
     if database is None:
         return error(503, "database_not_configured", "База данных не настроена.")
@@ -103,7 +120,11 @@ async def documents(
     source_id: str = "wiki",
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
+    x_ingestion_token: Annotated[str | None, Header()] = None,
 ):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
     database = request.app.state.database
     if database is None:
         return error(503, "database_not_configured", "База данных не настроена.")
@@ -118,7 +139,14 @@ async def documents(
     response_model=DocumentDetail,
     responses={**ERRORS, 404: {"model": ApiError}},
 )
-async def document(request: Request, document_id: UUID):
+async def document(
+    request: Request,
+    document_id: UUID,
+    x_ingestion_token: Annotated[str | None, Header()] = None,
+):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
     database = request.app.state.database
     if database is None:
         return error(503, "database_not_configured", "База данных не настроена.")
@@ -172,7 +200,12 @@ async def synchronize(request: Request, x_ingestion_token: Annotated[str | None,
 
 
 @router.get("/knowledge/summary", responses=ERRORS)
-async def latest_summary(request: Request):
+async def latest_summary(
+    request: Request, x_ingestion_token: Annotated[str | None, Header()] = None
+):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
     database = request.app.state.database
     if database is None:
         return error(503, "database_not_configured", "База данных не настроена.")
@@ -194,3 +227,75 @@ async def latest_summary(request: Request):
             }
     except SQLAlchemyError:
         return error(503, "database_unavailable", "Хранилище сводок недоступно.")
+
+
+@router.post(
+    "/integrations/telegram/sync",
+    response_model=SyncResult,
+    description="Читает только HSE_TELEGRAM_CHATS. Требует предварительного входа через CLI. "
+    "Сохраняет сообщения и правки в PostgreSQL; OpenAI не вызывает.",
+    responses={**ERRORS, 409: {"model": ApiError}, 502: {"model": SyncResult}},
+)
+async def synchronize_telegram(
+    request: Request,
+    x_ingestion_token: Annotated[str | None, Header()] = None,
+):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
+    database = request.app.state.database
+    if database is None:
+        return error(503, "database_not_configured", "База данных не настроена.")
+    try:
+        result = await sync_telegram(database, request.app.state.settings)
+        return JSONResponse(
+            status_code=502 if result["status"] == "failed" else 200,
+            content=jsonable_encoder(result),
+        )
+    except SyncBusy:
+        return error(409, "sync_in_progress", "Telegram уже синхронизируется.")
+    except SQLAlchemyError:
+        return error(503, "database_unavailable", "Хранилище Telegram недоступно.")
+
+
+@router.get("/knowledge/telegram", responses=ERRORS)
+async def telegram_digest(
+    request: Request,
+    x_ingestion_token: Annotated[str | None, Header()] = None,
+):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
+    database = request.app.state.database
+    if database is None:
+        return error(503, "database_not_configured", "База данных не настроена.")
+    try:
+        return await latest_telegram_digest(database, request.app.state.settings)
+    except SQLAlchemyError:
+        return error(503, "database_unavailable", "Хранилище Telegram недоступно.")
+
+
+@router.post(
+    "/knowledge/telegram/refresh",
+    description="Передаёт выбранное окно сохранённых сообщений в OpenAI, сохраняет сводку "
+    "с цитатами. Не читает Telegram. Неизменные входные данные используют кеш.",
+    responses={**ERRORS, 409: {"model": ApiError}, 502: {"model": ApiError}},
+)
+async def refresh_telegram_digest(
+    request: Request,
+    x_ingestion_token: Annotated[str | None, Header()] = None,
+):
+    denied = operator_error(request, x_ingestion_token)
+    if denied is not None:
+        return denied
+    database = request.app.state.database
+    if database is None:
+        return error(503, "database_not_configured", "База данных не настроена.")
+    try:
+        return await summarize_telegram(database, request.app.state.settings)
+    except AiError as exc:
+        return error(502, str(exc), "Не удалось обновить ИИ-сводку Telegram.")
+    except SyncBusy:
+        return error(409, "analysis_in_progress", "ИИ-сводка уже обновляется.")
+    except SQLAlchemyError:
+        return error(503, "database_unavailable", "Хранилище Telegram недоступно.")

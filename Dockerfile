@@ -8,6 +8,7 @@ COPY frontend ./frontend
 COPY alembic.ini ./
 COPY migrations ./migrations
 RUN useradd --create-home appuser \
+    && install -d -m 700 -o appuser -g appuser /app/.sessions \
     && chmod -R a+rX /app/migrations /app/alembic.ini
 USER appuser
 EXPOSE 8000

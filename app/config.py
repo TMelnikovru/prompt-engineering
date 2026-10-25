@@ -1,3 +1,4 @@
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
@@ -32,6 +33,19 @@ class Settings(BaseSettings):
     wiki_interval_seconds: int = Field(default=900, ge=60)
     wiki_retry_seconds: int = Field(default=60, ge=1)
     ingestion_token: SecretStr | None = Field(default=None, repr=False)
+    telegram_api_id: int | None = Field(default=None, gt=0, repr=False)
+    telegram_api_hash: SecretStr | None = Field(default=None, repr=False)
+    telegram_session_path: Path = Path(".sessions/telegram.session")
+    telegram_chats: list[str] = Field(default_factory=list, max_length=50)
+    telegram_history_days: int = Field(default=7, ge=1, le=365)
+    telegram_batch_size: int = Field(default=200, ge=1, le=2000)
+    telegram_edit_scan_limit: int = Field(default=100, ge=0, le=1000)
+    telegram_interval_seconds: int = Field(default=120, ge=30)
+    telegram_request_timeout: float = Field(default=30, ge=0.1, le=180)
+    telegram_summary_messages: int = Field(default=200, ge=1, le=1000)
+    telegram_pdf_max_bytes: int = Field(default=8_000_000, ge=1000, le=20_000_000)
+    telegram_pdf_max_pages: int = Field(default=30, ge=1, le=200)
+    telegram_pdf_max_chars: int = Field(default=40000, ge=1000, le=200000)
     openai_api_key: SecretStr | None = Field(
         default=None, validation_alias="OPENAI_API_KEY", repr=False
     )
@@ -43,6 +57,15 @@ class Settings(BaseSettings):
     ai_timeout: float = Field(default=60, ge=0.05, le=180)
     ai_chunk_chars: int = Field(default=12000, ge=1000, le=40000)
     ai_max_chunks: int = Field(default=8, ge=1, le=20)
+
+    @field_validator("telegram_chats", mode="before")
+    @classmethod
+    def valid_telegram_chats(cls, value):
+        if not isinstance(value, list):
+            raise ValueError("Укажите JSON-массив выбранных Telegram-чатов")
+        from app.connectors.telegram_refs import normalize_chat_ref
+
+        return list(dict.fromkeys(normalize_chat_ref(item) for item in value))
 
     @field_validator("wiki_api_url", "openai_base_url")
     @classmethod

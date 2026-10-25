@@ -66,7 +66,8 @@ async def dashboard(
                 if stored["document_count"]:
                     result.meta.mode = "live"
                     result.meta.notice = (
-                        f"В библиотеке {stored['document_count']} страниц вики ФКН. "
+                        f"В библиотеке есть данные источника «{stored['name']}» "
+                        f"({stored['document_count']} записей). "
                         "Принадлежность заданий вашему курсу ещё не определена."
                     )
         except SQLAlchemyError:

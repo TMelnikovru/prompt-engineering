@@ -22,6 +22,7 @@ from app.services.analysis import (
     summarize,
 )
 from app.services.ingestion import SyncBusy, sync_wiki
+from app.services.telegram import summarize_telegram, sync_telegram
 
 
 def emit(value):
@@ -34,6 +35,7 @@ async def analyze_pending(database: Database, settings: Settings, limit: int) ->
             await session.execute(
                 select(SourceDocument.id, DocumentVersion.id, DocumentVersion.content_hash)
                 .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
+                .where(SourceDocument.source_id == "wiki")
                 .order_by(SourceDocument.title, SourceDocument.id)
             )
         ).all()
@@ -133,6 +135,36 @@ async def run_worker(database: Database, settings: Settings, args):
         await asyncio.sleep(delay)
 
 
+async def telegram_cycle(database: Database, settings: Settings, args) -> dict:
+    result = {"event": "telegram_cycle", "started_at": datetime.now(UTC).isoformat()}
+    try:
+        result["sync"] = await sync_telegram(database, settings)
+    except (SyncBusy, SQLAlchemyError) as exc:
+        result["sync"] = stage_error(exc)
+    if args.summarize:
+        try:
+            summary = await summarize_telegram(database, settings)
+            result["summary"] = {key: value for key, value in summary.items() if key != "payload"}
+        except (AiError, SyncBusy, SQLAlchemyError) as exc:
+            result["summary"] = stage_error(exc)
+    result["retry_required"] = result["sync"].get("status") != "success" or "error" in result.get(
+        "summary", {}
+    )
+    return result
+
+
+async def run_telegram_worker(database: Database, settings: Settings, args):
+    while True:
+        result = await telegram_cycle(database, settings, args)
+        delay = 30 if result["retry_required"] else settings.telegram_interval_seconds
+        for failure in result["sync"].get("errors", []):
+            code = failure["code"]
+            if code.startswith("telegram_flood_wait_"):
+                delay = max(delay, int(code.rsplit("_", 1)[1]))
+        emit({**result, "next_attempt_in_seconds": delay})
+        await asyncio.sleep(delay)
+
+
 async def execute(args) -> int:
     settings = Settings()
     updates = {}
@@ -148,7 +180,13 @@ async def execute(args) -> int:
         return 2
     database = Database(settings)
     try:
-        if args.command == "worker":
+        if args.command == "telegram-worker":
+            await run_telegram_worker(database, settings, args)
+        elif args.command == "sync-telegram":
+            result = await telegram_cycle(database, settings, args)
+            emit(result)
+            return 2 if result["retry_required"] else 0
+        elif args.command == "worker":
             await run_worker(database, settings, args)
         elif args.command == "sync-wiki":
             result = await worker_cycle(database, settings, args)
@@ -184,6 +222,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("import-wiki")
+    for name in ("sync-telegram", "telegram-worker"):
+        command = commands.add_parser(name)
+        command.add_argument("--summarize", action="store_true")
     for name in ("sync-wiki", "worker"):
         command = commands.add_parser(name)
         command.add_argument("--max-pages", type=int)

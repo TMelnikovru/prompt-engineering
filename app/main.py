@@ -34,8 +34,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=__version__,
         lifespan=lifespan,
         description=(
-            "Контракт для разработки сайта учебного агента. "
-            "Живые интеграции, LLM и фоновые напоминания пока не реализованы."
+            "Учебный агент: библиотека источников, ИИ-анализ и сводки Telegram. "
+            "Доступ к библиотеке требует X-Ingestion-Token. "
+            "Готовность живых подключений зависит от настройки и последней синхронизации."
         ),
     )
     application.state.settings = resolved_settings
@@ -48,6 +49,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     def index(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(request=request, name="index.html")
+
+    @application.get("/telegram", response_class=HTMLResponse, include_in_schema=False)
+    def telegram_page(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(request=request, name="telegram.html")
 
     return application
 

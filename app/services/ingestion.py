@@ -35,6 +35,25 @@ async def ingestion_lock(database: Database, name: str):
 
 
 async def store_page(database: Database, page: WikiPage) -> str:
+    return await store_record(
+        database,
+        page,
+        raw_content=page.raw_content,
+        revision_key=page.revision_key,
+        content_hash=page.content_hash,
+        attributes={"links": page.links, "source_revision": page.revision_key},
+    )
+
+
+async def store_record(
+    database: Database,
+    page,
+    *,
+    raw_content: str,
+    revision_key: str,
+    content_hash: str,
+    attributes: dict,
+) -> str:
     async with database.session() as session, session.begin():
         document = await session.scalar(
             select(SourceDocument)
@@ -56,7 +75,7 @@ async def store_page(database: Database, page: WikiPage) -> str:
             )
             session.add(document)
             await session.flush()
-        revision_key = page.revision_key + ":" + page.content_hash
+        revision_key = revision_key + ":" + content_hash
         version = await session.scalar(
             select(DocumentVersion).where(
                 DocumentVersion.document_id == document.id,
@@ -68,11 +87,11 @@ async def store_page(database: Database, page: WikiPage) -> str:
                 id=uuid4(),
                 document_id=document.id,
                 revision_key=revision_key,
-                content_hash=page.content_hash,
-                raw_content=page.raw_content,
+                content_hash=content_hash,
+                raw_content=raw_content,
                 content_text=page.text,
                 fetched_at=page.fetched_at,
-                attributes={"links": page.links, "source_revision": page.revision_key},
+                attributes=attributes,
             )
             session.add(version)
             await session.flush()

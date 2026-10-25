@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HSE Study Agent",
-    "description": "Контракт для разработки сайта учебного агента. Живые интеграции, LLM и фоновые напоминания пока не реализованы.",
+    "description": "Учебный агент: библиотека источников, ИИ-анализ и сводки Telegram. Доступ к библиотеке требует X-Ingestion-Token. Готовность живых подключений зависит от настройки и последней синхронизации.",
     "version": "0.1.0"
   },
   "paths": {
@@ -133,27 +133,65 @@
         ],
         "summary": "Sources",
         "operationId": "sources_api_v1_sources_get",
+        "parameters": [
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/SourceView"
                   },
-                  "type": "array",
                   "title": "Response Sources Api V1 Sources Get"
                 }
               }
             }
           },
-          "503": {
-            "description": "PostgreSQL не настроен или недоступен",
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Хранилище или доступ не настроены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -201,6 +239,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
           }
         ],
         "responses": {
@@ -214,8 +268,18 @@
               }
             }
           },
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "PostgreSQL не настроен или недоступен",
+            "description": "Хранилище или доступ не настроены",
             "content": {
               "application/json": {
                 "schema": {
@@ -254,6 +318,22 @@
               "format": "uuid",
               "title": "Document Id"
             }
+          },
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
           }
         ],
         "responses": {
@@ -267,8 +347,18 @@
               }
             }
           },
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "PostgreSQL не настроен или недоступен",
+            "description": "Хранилище или доступ не настроены",
             "content": {
               "application/json": {
                 "schema": {
@@ -337,16 +427,6 @@
               }
             }
           },
-          "503": {
-            "description": "PostgreSQL не настроен или недоступен",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
           "401": {
             "content": {
               "application/json": {
@@ -356,6 +436,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "503": {
+            "description": "Хранилище или доступ не настроены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
             "content": {
@@ -397,6 +487,24 @@
         ],
         "summary": "Latest Summary",
         "operationId": "latest_summary_api_v1_knowledge_summary_get",
+        "parameters": [
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -406,12 +514,277 @@
               }
             }
           },
-          "503": {
-            "description": "PostgreSQL не настроен или недоступен",
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Хранилище или доступ не настроены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/telegram/sync": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Synchronize Telegram",
+        "description": "Читает только HSE_TELEGRAM_CHATS. Требует предварительного входа через CLI. Сохраняет сообщения и правки в PostgreSQL; OpenAI не вызывает.",
+        "operationId": "synchronize_telegram_api_v1_integrations_telegram_sync_post",
+        "parameters": [
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Хранилище или доступ не настроены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/telegram": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Telegram Digest",
+        "operationId": "telegram_digest_api_v1_knowledge_telegram_get",
+        "parameters": [
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Хранилище или доступ не настроены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/telegram/refresh": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Refresh Telegram Digest",
+        "description": "Передаёт выбранное окно сохранённых сообщений в OpenAI, сохраняет сводку с цитатами. Не читает Telegram. Неизменные входные данные используют кеш.",
+        "operationId": "refresh_telegram_digest_api_v1_knowledge_telegram_refresh_post",
+        "parameters": [
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Нужен серверный X-Ingestion-Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Хранилище или доступ не настроены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }

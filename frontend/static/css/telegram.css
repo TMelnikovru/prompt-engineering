@@ -1,0 +1,14 @@
+.telegram-main { max-width: 960px; margin: 0 auto; padding: 36px 24px 72px; }
+.telegram-access, .telegram-panel { padding: 24px; margin: 20px 0; }
+.telegram-access label { display: block; font-weight: 600; margin-bottom: 12px; }
+.telegram-access p, .telegram-meta { color: var(--muted, #62645e); font-size: 14px; }
+.telegram-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.telegram-actions[hidden] { display: none; }
+.telegram-access input { flex: 1; min-width: 180px; padding: 12px; border: 1px solid #cccfc7; border-radius: 10px; font: inherit; }
+.telegram-panel h2 { margin: 0 0 16px; }
+.telegram-panel h3 { margin: 24px 0 12px; }
+.telegram-panel li { margin: 12px 0; line-height: 1.6; }
+.telegram-citations { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; }
+.telegram-panel blockquote { border-left: 3px solid #acb79a; margin: 8px 0; padding: 4px 12px; white-space: pre-wrap; }
+#feedback { white-space: pre-wrap; }
+button:disabled { opacity: .6; cursor: wait; }
