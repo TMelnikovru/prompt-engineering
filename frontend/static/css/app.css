@@ -182,7 +182,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .notice-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lav-600); flex-shrink: 0; }
 
 /* ---------- Переходы между разделами ---------- */
-.views { view-transition-name: views; min-width: 0; }
+.views { min-width: 0; }
 .view { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 .view:focus { outline: none; }
 .view-heading { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
@@ -191,8 +191,6 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .view-lead { max-width: 60ch; margin-top: 8px; font-size: 16px; color: var(--ink-2); }
 
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
-::view-transition-old(views) { animation: view-out .12s linear both; }
-::view-transition-new(views) { animation: view-in .18s linear both; }
 
 /* ---------- Хиро «Сегодня» ---------- */
 .hero {
@@ -496,8 +494,6 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 /* ---------- Ключевые кадры ---------- */
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes view-out { to { opacity: 0; } }
-@keyframes view-in { from { opacity: 0; } }
 @keyframes band-in { from { transform: translateY(105%); } to { transform: none; } }
 @keyframes letter-in { from { opacity: 0; transform: translateY(40%) scaleY(.6); } to { opacity: 1; transform: none; } }
 @keyframes indeterminate { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
@@ -575,7 +571,6 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 }
 
 /* Смена темы: новая палитра раскрывается кругом из точки клика */
-.theme-switching .views { view-transition-name: none; }
 .theme-button { width: 44px; padding: 0; border-color: var(--line); background: var(--surface); color: var(--ink); }
 .theme-button:hover { background: var(--sky-100); }
 .theme-button .icon { width: 20px; height: 20px; stroke-width: 1.8; }

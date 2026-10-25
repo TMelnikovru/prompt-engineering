@@ -938,6 +938,8 @@ $("#settings-form").addEventListener("submit", (event) => {
 });
 
 /* ---------- Навигация ---------- */
+let viewAnimation = null;
+
 function moveIndicator() {
   const indicator = $("#nav-indicator");
   const active = $(".nav-wrap .nav-link[aria-current='page']");
@@ -955,7 +957,6 @@ function applyView(name) {
     if (link.dataset.nav === name) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
-  const current = $(`[data-view="${name}"]`);
   moveIndicator();
 }
 
@@ -965,16 +966,20 @@ function showView({ focus = true } = {}) {
   if (name === state.view) return;
   const first = state.view === null;
   state.view = name;
-  if (name === "summary" && !summaryLoader.loaded) loadSummary();
-  if (!first && animate() && document.startViewTransition) {
-    document.startViewTransition(() => applyView(name));
-  } else {
-    applyView(name);
-  }
+  // Switch immediately. Full-page snapshots make differently sized sections
+  // expensive to transition and can queue stale views during rapid navigation.
+  viewAnimation?.cancel();
+  viewAnimation = null;
+  applyView(name);
+  const current = $(`[data-view="${name}"]`);
   if (focus && !first) {
-    $(`[data-view="${name}"]`)?.focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: animate() ? "smooth" : "auto" });
+    current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
+  if (!first && animate() && state.dashboard && current?.animate) {
+    viewAnimation = current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
+  }
+  if (name === "summary" && !summaryLoader.loaded) loadSummary();
 }
 
 /* ---------- Загрузка ---------- */
