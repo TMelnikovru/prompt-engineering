@@ -777,7 +777,6 @@ function renderMeta() {
     timeZone: meta.timezone, weekday: "long", day: "numeric", month: "long",
   }).format(new Date(meta.generated_at));
   $("#today-label").dateTime = meta.generated_at;
-  $("#today-zone").textContent = "Часовой пояс: " + meta.timezone + ", " + zoneOffset();
   $("#mode-notice-text").textContent = meta.notice;
   $("#mode-notice").hidden = !meta.notice;
   $("#nav-task-count").textContent = String(tasks.filter((task) => !isDone(task)).length);
@@ -848,6 +847,52 @@ async function loadDashboard() {
     hideSplash();
   }
 }
+
+/* ---------- Ширина меню: перетаскивание, стрелки, двойной клик ---------- */
+const SIDEBAR = { min: 208, max: 380, initial: 264 };
+
+function setSidebarWidth(width, persist = true) {
+  const value = Math.round(Math.min(SIDEBAR.max, Math.max(SIDEBAR.min, width)));
+  $(".app-shell").style.setProperty("--sidebar-w", value + "px");
+  $("#sidebar").classList.toggle("is-narrow", value < 236);
+  const handle = $("#sidebar-resizer");
+  handle.setAttribute("aria-valuenow", String(value));
+  handle.setAttribute("aria-valuemin", String(SIDEBAR.min));
+  handle.setAttribute("aria-valuemax", String(SIDEBAR.max));
+  if (persist) save("sidebar", value);
+  moveIndicator();
+}
+
+(() => {
+  const handle = $("#sidebar-resizer");
+  const shell = $(".app-shell");
+  setSidebarWidth(load("sidebar", SIDEBAR.initial), false);
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    handle.setPointerCapture(event.pointerId);
+    shell.classList.add("is-resizing");
+    const move = (moveEvent) => setSidebarWidth(moveEvent.clientX, false);
+    const up = (upEvent) => {
+      setSidebarWidth(upEvent.clientX);
+      shell.classList.remove("is-resizing");
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+  });
+  handle.addEventListener("dblclick", () => setSidebarWidth(SIDEBAR.initial));
+  handle.addEventListener("keydown", (event) => {
+    const current = Number(handle.getAttribute("aria-valuenow"));
+    const step = event.shiftKey ? 40 : 16;
+    if (event.key === "ArrowLeft") setSidebarWidth(current - step);
+    else if (event.key === "ArrowRight") setSidebarWidth(current + step);
+    else if (event.key === "Home") setSidebarWidth(SIDEBAR.min);
+    else if (event.key === "End") setSidebarWidth(SIDEBAR.max);
+    else return;
+    event.preventDefault();
+  });
+})();
 
 $$("[data-filter]").forEach((button) => button.addEventListener("click", () => {
   state.filter = button.dataset.filter;

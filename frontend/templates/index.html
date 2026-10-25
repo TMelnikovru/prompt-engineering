@@ -34,7 +34,7 @@
   </div>
 
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <a class="brand" href="#today" aria-label="Учебный агент, сегодня">
         <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
           <rect width="40" height="40" rx="12" fill="#17367a"/>
@@ -68,13 +68,13 @@
         <span class="avatar" aria-hidden="true"><svg class="icon"><use href="/static/icons.svg#account"></use></svg></span>
         <span class="account-text"><strong>Аккаунт</strong><span>вход и данные</span></span>
       </a>
+      <div class="sidebar-resizer" id="sidebar-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Ширина меню" aria-controls="sidebar" title="Потяни, чтобы изменить ширину. Двойной клик вернёт исходную."></div>
     </aside>
 
     <main id="main" class="main" tabindex="-1">
       <header class="topbar">
         <div class="today-block">
           <time class="today-date" id="today-label"></time>
-          <span class="today-zone" id="today-zone"></span>
         </div>
         <div class="topbar-actions">
           <span class="sync-state" id="sync-state" data-state="loading"><span class="sync-dot" aria-hidden="true"></span><span id="sync-text">Загружаем…</span></span>
