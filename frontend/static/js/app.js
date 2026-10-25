@@ -17,6 +17,7 @@ const state = {
   materials: { query: "", course: "", today: false },
   view: null,
   loading: false,
+  reloadRequested: false,
   changes: load("changes", {}),
   fresh: new Set(),
   done: new Set(load("done", [])),
@@ -771,7 +772,7 @@ function renderMaterials() {
     $("#materials-empty-title").textContent = all.length ? "Ничего не нашлось" : "Материалов пока нет";
     $("#materials-empty-text").textContent = all.length
       ? "Попробуй другое слово или сбрось фильтры."
-      : "Подключи свою группу DSBA в разделе «Источники». Здесь появятся её материалы и ссылки из заданий.";
+      : "Материалы выбранной при входе группы загрузятся автоматически. Здесь также появятся ссылки из заданий.";
   }
 }
 
@@ -933,67 +934,18 @@ function setSync(stateName, text) {
   $("#sync-text").textContent = text;
 }
 
-/* ---------- Вход: ФИО и группа, только в этом браузере ---------- */
-function renderProfile() {
-  const profile = load("profile", null);
-  $("#account-name").textContent = profile ? profile.name.split(" ").slice(0, 2).join(" ") : "Аккаунт";
-  $("#account-group").textContent = profile ? "группа " + profile.group : "вход и данные";
-  $("#account-view-name").textContent = profile?.name || "—";
-  $("#account-view-group").textContent = profile?.group || "—";
-  const avatar = $("#account-avatar");
-  if (profile) avatar.textContent = profile.name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-  else avatar.replaceChildren(icon("account"));
-}
-
-function openSignup() {
-  if (load("profile", null) || $("#signup").open) return;
-  $("#signup-error").hidden = true;
-  $("#signup").showModal();
-  setTimeout(() => $("#signup-name").focus(), animate() ? 350 : 0);
-}
-
-$("#signup").addEventListener("cancel", (event) => event.preventDefault());
-$("#signup-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const name = $("#signup-name").value.trim().replace(/\s+/g, " ");
-  const group = $("#signup-group").value.replace(/\s+/g, "").toUpperCase();
-  const error = $("#signup-error");
-  if (name.split(" ").length < 2) {
-    error.textContent = "Напиши фамилию и имя, можно с отчеством.";
-  } else if (!group) {
-    error.textContent = "Напиши номер группы.";
-  } else {
-    error.hidden = true;
-    save("profile", { name, group });
-    renderProfile();
-    const dialog = $("#signup");
-    dialog.classList.add("is-closing");
-    setTimeout(() => { dialog.close(); dialog.classList.remove("is-closing"); }, animate() ? 280 : 0);
-    toast("Привет, " + name.split(" ")[1] + "!", "Группа " + group + ". Связь Вааааась.");
-    return;
-  }
-  error.hidden = false;
-});
-$("#logout-button").addEventListener("click", () => {
-  try { localStorage.removeItem(STORE + "profile"); } catch { /* приватный режим */ }
-  $("#signup-form").reset();
-  renderProfile();
-  openSignup();
-});
-renderProfile();
-
 function hideSplash() {
   const splash = $("#splash");
   if (splash.classList.contains("is-done")) return;
   const wait = animate() ? Math.max(0, 1300 - (performance.now() - splashStarted)) : 0;
   setTimeout(() => {
     splash.classList.add("is-done");
-    setTimeout(() => { splash.hidden = true; openSignup(); }, animate() ? 900 : 0);
+    setTimeout(() => { splash.hidden = true; profileController.openIfNeeded(); }, animate() ? 900 : 0);
   }, wait);
 }
 
 async function loadDashboard() {
-  if (state.loading) return;
+  if (state.loading) { state.reloadRequested = true; return; }
   state.loading = true;
   const button = $("#refresh-button");
   button.disabled = true;
@@ -1001,7 +953,10 @@ async function loadDashboard() {
   setSync("loading", "Обновляем…");
   try {
     const scenario = new URLSearchParams(location.search).get("scenario") || "default";
-    state.dashboard = await fetchDashboard(scenario, state.dsbaSourceId);
+    const sourceId = state.dsbaSourceId;
+    const dashboard = await fetchDashboard(scenario, sourceId);
+    if (sourceId !== state.dsbaSourceId) { state.reloadRequested = true; return; }
+    state.dashboard = dashboard;
     detectChanges(state.dashboard.tasks);
     $("#load-error").hidden = true;
     renderAll();
@@ -1027,6 +982,10 @@ async function loadDashboard() {
     button.disabled = false;
     button.classList.remove("is-loading");
     hideSplash();
+    if (state.reloadRequested) {
+      state.reloadRequested = false;
+      queueMicrotask(loadDashboard);
+    }
   }
 }
 
@@ -1141,7 +1100,21 @@ window.addEventListener("offline", () => {
 });
 window.addEventListener("online", loadDashboard);
 document.fonts?.ready.then(moveIndicator);
-setupDsba(async (sourceId) => {
+const profileController = setupDsba(async (sourceId, resetPersonal) => {
+  if (resetPersonal) {
+    state.dashboard = null;
+    applyView(state.view || "today");
+    state.done = new Set();
+    state.overrides = {};
+    state.changes = {};
+    state.fresh.clear();
+    state.settings = null;
+    state.course = "";
+    state.filter = "all";
+    state.materials = { query: "", course: "", today: false };
+    $("#materials-search").value = "";
+    $$("[data-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item.dataset.filter === "all")));
+  }
   state.dsbaSourceId = sourceId;
   await loadDashboard();
 });

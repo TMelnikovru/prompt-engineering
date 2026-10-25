@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from hashlib import sha256
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -47,7 +48,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(router)
     application.include_router(dsba_router)
     application.include_router(ingestion_router)
-    application.mount("/static", StaticFiles(directory=ROOT / "frontend" / "static"), name="static")
+    static_root = ROOT / "frontend" / "static"
+    digest = sha256()
+    for asset in sorted(path for path in static_root.rglob("*") if path.is_file()):
+        digest.update(asset.relative_to(static_root).as_posix().encode())
+        digest.update(asset.read_bytes())
+    asset_version = digest.hexdigest()[:12]
+    # Relative JS imports inherit this prefix and load the same asset generation.
+    application.mount("/static/" + asset_version, StaticFiles(directory=static_root), name="static")
+    application.mount("/static", StaticFiles(directory=static_root), name="static-legacy")
     templates = Jinja2Templates(directory=ROOT / "frontend" / "templates")
 
     @application.get("/demo/materials/{slug}", response_class=HTMLResponse, include_in_schema=False)
@@ -63,7 +72,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     def index(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request=request, name="index.html")
+        response = templates.TemplateResponse(
+            request=request,
+            name="index.html",
+            context={"demo_mode": resolved_settings.demo_mode},
+        )
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     return application
 
