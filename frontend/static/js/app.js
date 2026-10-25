@@ -4,7 +4,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const STORE = "hse-agent:";
-const MAIN_VIEWS = ["today", "tasks", "grades", "settings", "sources", "account"];
+const MAIN_VIEWS = ["today", "tasks", "materials", "grades", "settings", "sources", "account"];
 const statusLabels = {
   not_connected: "Не подключён", connected: "Подключён", syncing: "Обновляется",
   error: "Ошибка подключения", stale: "Данные устарели",
@@ -15,6 +15,7 @@ const state = {
   dashboard: null,
   filter: "all",
   course: "",
+  materials: { query: "", course: "", today: false },
   view: null,
   loading: false,
   changes: load("changes", {}),
@@ -459,9 +460,7 @@ function duePanel(task) {
   }
   value.append(node("strong", "due-new", deadlineText(task, { long: true })));
   panel.append(value);
-  const zone = due.kind === "exact"
-    ? "Время: " + tz() + ", " + zoneOffset()
-    : due.kind === "date" ? "Источник указал дату без времени" : "";
+  const zone = due.kind === "date" ? "Источник указал дату без времени" : "";
   const noticed = change ? "агент заметил перенос в " + clock(change.at) : "";
   const line = [zone, noticed].filter(Boolean).join(" · ");
   if (line) panel.append(node("span", "due-zone", line));
@@ -640,6 +639,146 @@ function renderTasks() {
     : "Агент покажет их после первых сообщений из источников.";
 }
 
+/* ---------- Материалы: собираются из заданий ---------- */
+function collectMaterials() {
+  const { tasks, plan } = state.dashboard;
+  const planned = new Set(plan.blocks.map((block) => block.task_id));
+  const byKey = new Map();
+  for (const task of tasks) {
+    for (const title of task.materials) {
+      const key = task.course + "::" + title;
+      if (!byKey.has(key)) byKey.set(key, { title, course: task.course, tasks: [], today: false });
+      const entry = byKey.get(key);
+      entry.tasks.push(task);
+      if (!isDone(task) && (planned.has(task.id) || isToday(task))) entry.today = true;
+    }
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.course.localeCompare(b.course, "ru") || Number(b.today) - Number(a.today) || a.title.localeCompare(b.title, "ru"));
+}
+
+function highlight(text, query) {
+  const fragment = document.createDocumentFragment();
+  const index = query ? text.toLowerCase().indexOf(query) : -1;
+  if (index < 0) { fragment.append(text); return fragment; }
+  fragment.append(text.slice(0, index), node("mark", "", text.slice(index, index + query.length)), text.slice(index + query.length));
+  return fragment;
+}
+
+function materialCard(entry, query) {
+  const item = node("li", "material-card");
+  if (entry.today) item.classList.add("is-today");
+  const mark = node("span", "material-icon");
+  mark.setAttribute("aria-hidden", "true");
+  mark.append(icon("doc"));
+  const body = node("div", "material-body");
+  const title = node("strong", "material-title");
+  title.append(highlight(entry.title, query));
+  body.append(title);
+  if (entry.today) body.append(node("span", "chip chip-today material-badge", "нужно сегодня"));
+  const links = node("span", "material-tasks");
+  links.append("К заданию: ");
+  entry.tasks.forEach((task, index) => {
+    if (index) links.append(", ");
+    const link = node("a", "");
+    link.href = "#tasks";
+    link.dataset.openTask = task.id;
+    link.append(highlight(task.title, query));
+    links.append(link);
+  });
+  const first = [...entry.tasks].sort(compareTasks)[0];
+  const sources = [...new Set(entry.tasks.flatMap((task) => task.evidence.map((item) => sourceName(item.source_id))))];
+  const meta = node("span", "material-meta", [deadlineText(first), ...sources].join(" · "));
+  body.append(links, meta);
+  item.append(mark, body);
+  return item;
+}
+
+function renderMaterials() {
+  const all = collectMaterials();
+  const filters = state.materials;
+  const query = filters.query.trim().toLowerCase();
+  const select = $("#materials-course");
+  const courses = [...new Set(all.map((entry) => entry.course))];
+  if (filters.course && !courses.includes(filters.course)) filters.course = "";
+  const any = node("option", "", "Все курсы");
+  any.value = "";
+  select.replaceChildren(any, ...courses.map((course) => {
+    const option = node("option", "", course);
+    option.value = course;
+    return option;
+  }));
+  select.value = filters.course;
+  const todayCount = all.filter((entry) => entry.today).length;
+  $("#materials-today-count").textContent = todayCount ? String(todayCount) : "";
+  $("#materials-today").setAttribute("aria-pressed", String(filters.today));
+
+  const visible = all.filter((entry) => {
+    if (filters.course && entry.course !== filters.course) return false;
+    if (filters.today && !entry.today) return false;
+    if (!query) return true;
+    return [entry.title, entry.course, ...entry.tasks.map((task) => task.title)].some((text) => text.toLowerCase().includes(query));
+  });
+  const groups = new Map();
+  for (const entry of visible) {
+    if (!groups.has(entry.course)) groups.set(entry.course, []);
+    groups.get(entry.course).push(entry);
+  }
+  $("#materials-list").replaceChildren(...[...groups].map(([course, entries]) => {
+    const group = node("section", "material-group");
+    const heading = node("div", "material-group-head");
+    const name = node("h2", "material-course");
+    name.append(highlight(course, query));
+    heading.append(name, node("span", "nav-count", String(entries.length)));
+    const list = node("ul", "material-cards");
+    list.append(...entries.map((entry) => materialCard(entry, query)));
+    group.append(heading, list);
+    return group;
+  }));
+  stagger($$("#materials-list .material-group"));
+  const empty = !visible.length;
+  $("#materials-empty").hidden = !empty;
+  if (empty) {
+    $("#materials-empty-title").textContent = all.length ? "Ничего не нашлось" : "Материалов пока нет";
+    $("#materials-empty-text").textContent = all.length
+      ? "Попробуй другое слово или сбрось фильтры."
+      : "Агент покажет их, когда в заданиях появятся конспекты, семинары и файлы.";
+  }
+}
+
+$("#materials-search").addEventListener("input", (event) => {
+  state.materials.query = event.target.value;
+  renderMaterials();
+});
+$("#materials-course").addEventListener("change", (event) => {
+  state.materials.course = event.target.value;
+  renderMaterials();
+});
+$("#materials-today").addEventListener("click", () => {
+  state.materials.today = !state.materials.today;
+  renderMaterials();
+});
+
+/* Переход из материала к его заданию: фильтры сбрасываются, карточка раскрывается. */
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("[data-open-task]");
+  if (!link) return;
+  event.preventDefault();
+  const id = link.dataset.openTask;
+  state.filter = "all";
+  state.course = "";
+  $$("[data-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item.dataset.filter === "all")));
+  renderTasks();
+  location.hash = "tasks";
+  setTimeout(() => {
+    const card = $(`#task-list [data-key="${CSS.escape(id)}"]`);
+    if (!card) return;
+    $("details", card).open = true;
+    card.scrollIntoView({ block: "center", behavior: animate() ? "smooth" : "auto" });
+    card.animate([{ boxShadow: "0 0 0 4px rgb(112 86 172 / 40%)" }, { boxShadow: "0 0 0 0 rgb(112 86 172 / 0%)" }], { duration: 1600 });
+  }, animate() ? 450 : 0);
+});
+
 /* ---------- Источники ---------- */
 function renderSources() {
   const { sources } = state.dashboard;
@@ -755,6 +894,7 @@ function renderAll() {
   renderStrip();
   renderCourses();
   renderTasks();
+  renderMaterials();
   renderSources();
   renderSettings();
 }
@@ -791,8 +931,8 @@ $("#signup-form").addEventListener("submit", (event) => {
   const error = $("#signup-error");
   if (name.split(" ").length < 2) {
     error.textContent = "Напиши фамилию и имя, можно с отчеством.";
-  } else if (!/^[A-ZА-ЯЁ]{2,8}-?\d{2,4}$/.test(group)) {
-    error.textContent = "Номер группы выглядит как БПМИ251: буквы и цифры.";
+  } else if (!group) {
+    error.textContent = "Напиши номер группы.";
   } else {
     error.hidden = true;
     save("profile", { name, group });

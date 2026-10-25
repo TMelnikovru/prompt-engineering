@@ -52,6 +52,7 @@
           <span class="nav-caption">Учёба</span>
           <a class="nav-link" href="#today" data-nav="today"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#today"></use></svg>Сегодня</a>
           <a class="nav-link" href="#tasks" data-nav="tasks"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания<span class="nav-count" id="nav-task-count"></span></a>
+          <a class="nav-link" href="#materials" data-nav="materials"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#doc"></use></svg>Материалы</a>
           <a class="nav-link" href="#grades" data-nav="grades"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#grades"></use></svg>Оценки</a>
           <a class="nav-link" href="#settings" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Настройки</a>
         </nav>
@@ -258,6 +259,30 @@
               <span class="settings-hint" id="settings-saved" role="status"></span>
             </div>
           </form>
+        </section>
+
+        <section class="view" id="view-materials" data-view="materials" tabindex="-1" aria-labelledby="materials-title" hidden>
+          <div class="view-heading">
+            <h1 class="view-title" id="materials-title">Материалы</h1>
+          </div>
+          <div class="toolbar materials-toolbar">
+            <label class="search">
+              <span class="visually-hidden">Поиск по материалам</span>
+              <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#search"></use></svg>
+              <input class="input" id="materials-search" type="search" placeholder="Найти материал или задание" autocomplete="off">
+            </label>
+            <div class="toolbar-group">
+              <button class="toggle" id="materials-today" type="button" aria-pressed="false">Нужно сегодня<span class="toggle-count" id="materials-today-count"></span></button>
+              <label class="select-wrap">Курс
+                <select class="select" id="materials-course"><option value="">Все курсы</option></select>
+              </label>
+            </div>
+          </div>
+          <div class="materials" id="materials-list"></div>
+          <div class="empty-state" id="materials-empty" hidden>
+            <strong id="materials-empty-title"></strong>
+            <p id="materials-empty-text"></p>
+          </div>
         </section>
 
         <section class="view" id="view-grades" data-view="grades" tabindex="-1" aria-labelledby="grades-title" hidden>
