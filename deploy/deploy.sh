@@ -4,20 +4,23 @@ set -Eeuo pipefail
 umask 077
 
 deploy_root="${1:-$HOME/apps/hse-study-agent}"
-revision="${2:-main}"
+if [[ -f "$deploy_root/deploy.env" ]]; then
+    # Trusted settings installed on the server, separate from application secrets.
+    source "$deploy_root/deploy.env"
+fi
+deploy_branch="${HSE_DEPLOY_BRANCH:-main}"
+revision="${2:-$deploy_branch}"
 deploy_project="${HSE_DEPLOY_PROJECT:-hse-study-agent}"
 export GIT_TERMINAL_PROMPT=0
 
 exec 9>"$deploy_root/deploy.lock"
 flock -n 9 || exit 0
 
-if [[ "$revision" == main ]]; then
+if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+    git check-ref-format "refs/heads/$revision" > /dev/null
     git -C "$deploy_root/repository" fetch --quiet origin \
-        +refs/heads/main:refs/remotes/origin/main
-    revision="$(git -C "$deploy_root/repository" rev-parse refs/remotes/origin/main)"
-elif [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
-    echo 'Use main or a full commit SHA.' >&2
-    exit 2
+        "+refs/heads/$revision:refs/remotes/origin/$revision"
+    revision="$(git -C "$deploy_root/repository" rev-parse "refs/remotes/origin/$revision^{commit}")"
 fi
 
 previous=""
@@ -37,7 +40,7 @@ git -C "$deploy_root/repository" archive "$revision" | (umask 022; tar -x -C "$r
 compose_for() {
     local commit="$1"
     shift
-    HSE_APP_IMAGE="hse-study-agent:$commit" docker compose \
+    HSE_APP_IMAGE="$deploy_project:$commit" docker compose \
         --project-name "$deploy_project" \
         --env-file "$deploy_root/.env" \
         --project-directory "$deploy_root/releases/$commit" \
@@ -62,12 +65,21 @@ rollback() {
 }
 trap rollback ERR
 
+# Migrate the target database before replacing the running application.
+if [[ -f "$release/alembic.ini" ]]; then
+    compose_for "$revision" up -d --no-build --wait --wait-timeout 120 postgres
+    compose_for "$revision" run --rm --no-deps app python -m alembic upgrade head
+fi
 compose_for "$revision" up -d --no-build --wait --wait-timeout 120
 # Verify authentication and a real SQL roundtrip from the application container.
 compose_for "$revision" exec -T app python -c \
     'import psycopg; c = psycopg.connect(); assert c.execute("SELECT 1").fetchone() == (1,); c.close()'
 compose_for "$revision" exec -T app python -c \
     'import urllib.request; assert urllib.request.urlopen("http://127.0.0.1:8000/", timeout=5).status == 200'
+if [[ -f "$release/alembic.ini" ]]; then
+    compose_for "$revision" exec -T app python -c \
+        'import urllib.request; assert urllib.request.urlopen("http://127.0.0.1:8000/api/v1/ready", timeout=10).status == 200'
+fi
 
 ln -sfn "$release" "$deploy_root/current.next"
 mv -Tf "$deploy_root/current.next" "$deploy_root/current"

@@ -35,8 +35,10 @@ jobs:
         run: |
           task_root="$RUNNER_TEMP/hse-study-agent"
           bash deploy/prepare.sh "$task_root" > /dev/null
+          git branch --force ci/preview HEAD
           git clone --quiet --shared . "$task_root/repository"
-          bash deploy/deploy.sh "$task_root" "$(git rev-parse HEAD)"
+          printf 'HSE_DEPLOY_BRANCH=ci/preview\nHSE_DEPLOY_PROJECT=hse-study-agent-ci\n' > "$task_root/deploy.env"
+          bash deploy/deploy.sh "$task_root"
       - name: Remove test containers and volumes
         if: always()
         run: |

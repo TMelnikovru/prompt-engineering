@@ -131,3 +131,50 @@ bash "$ROOT/current/deploy/install-cron.sh" "$ROOT"
 Скрипт `$ROOT/deploy.sh` устанавливается отдельно и автоматически не заменяется.
 После изменения логики deploy его нужно обновить вручную через `install`, как выше.
 Сам контейнер приложения и конфигурация Compose берутся из нового commit `main`.
+
+## Preview ветки backend/postgresql
+
+Второй сайт работает на `docker-prod` по `http://192.168.7.197:8001`.
+Для `hsep.tmelnikov.ru` укажите этот адрес как upstream прокси.
+Каталог: `/home/tmelnikovru/apps/hse-study-agent-postgresql`.
+Compose project — `hse-study-agent-postgresql`; у него отдельные контейнеры,
+сеть, пароль и volume `hse-study-agent-postgresql_postgres_data`.
+Основной сайт остаётся на порту 8000.
+
+```sh
+ROOT="$HOME/apps/hse-study-agent-postgresql"
+```
+
+В `$ROOT/deploy.env` сохранены настройки самого deploy-скрипта:
+
+```sh
+HSE_DEPLOY_BRANCH=backend/postgresql
+HSE_DEPLOY_PROJECT=hse-study-agent-postgresql
+```
+
+Это доверенный shell-файл настроек сервера; секреты приложения находятся в
+отдельном `$ROOT/.env` с правами 600. Cron проверяет выбранную ветку каждую
+минуту. У каждого Compose project своя запись cron; переустановка preview
+не удаляет запись основного сайта. Для другой ветки создайте отдельный каталог,
+уникальный Compose project, порт и серверный `.env`.
+
+При наличии `alembic.ini` deploy сначала запускает PostgreSQL, затем
+`python -m alembic upgrade head` в новом образе, после чего обновляет приложение.
+Дополнительно проверяется `/api/v1/ready`. Миграции относятся только к БД
+выбранного окружения. Автоматический откат контейнера не откатывает схему БД.
+
+```sh
+bash "$ROOT/deploy.sh" "$ROOT"
+tail -n 100 "$ROOT/deploy.log"
+cd "$ROOT/current"
+export HSE_APP_IMAGE="hse-study-agent-postgresql:$(basename "$(readlink -f "$ROOT/current")")"
+docker compose --project-name hse-study-agent-postgresql --env-file "$ROOT/.env" ps
+docker compose --project-name hse-study-agent-postgresql --env-file "$ROOT/.env" exec -T app \
+  python -m alembic current
+curl --fail http://192.168.7.197:8001/api/v1/ready
+```
+
+Настройка канала обновления и повторное включение cron используют
+`deploy.env`, поэтому аргумент ветки при обычном ручном запуске не нужен.
+Для однократного развёртывания можно указать ветку либо полный SHA вторым
+аргументом: `bash "$ROOT/deploy.sh" "$ROOT" backend/postgresql`.
