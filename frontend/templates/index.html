@@ -15,7 +15,7 @@
   <noscript><style>.splash { display: none; }</style></noscript>
   <script>try { if (localStorage.getItem("hse-agent:theme") === '"vit"') document.documentElement.dataset.theme = "vit"; } catch {}</script>
 </head>
-<body>
+<body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
   <a class="skip-link" href="#main">К содержимому</a>
 
   <div class="splash" id="splash" role="status" aria-live="polite">
@@ -194,25 +194,7 @@
               <p class="view-lead" id="sources-lead"></p>
             </div>
           </div>
-          <details class="dsba-connection" id="dsba-connection">
-            <summary>Подключить или обновить dsba.online</summary>
-            <p>Программа, курс и группа определяют, какие материалы и дедлайны ты увидишь.</p>
-            <form id="dsba-form">
-              <fieldset disabled>
-                <label>Программа<select name="program" required aria-label="Программа"></select></label>
-                <label>Курс<select name="year" required aria-label="Курс"></select></label>
-                <label>Группа<select name="group" aria-label="Группа"></select></label>
-                <label>Подгруппа<select name="sub" aria-label="Подгруппа"></select></label>
-                <button class="button button-primary" type="submit">Подключить группу</button>
-              </fieldset>
-            </form>
-            <p>Без подгруппы могут отображаться материалы обеих подгрупп.</p>
-            <p id="dsba-message" role="status" aria-live="polite"></p>
-            <div id="dsba-materials-section" hidden>
-              <h3>Материалы группы · до 100 записей</h3>
-              <ul id="dsba-materials"></ul>
-            </div>
-          </details>
+          <p class="settings-hint">DSBA загружается по данным профиля и обновляется автоматически.</p>
           <ul class="source-grid" id="source-grid"></ul>
           <div class="callout">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#info"></use></svg>
@@ -226,6 +208,7 @@
               <h1 class="view-title" id="settings-title">Настройки</h1>
               <p class="view-lead">Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.</p>
             </div>
+            <a class="button button-ghost" href="#account">Учебный профиль</a>
           </div>
           <form class="settings-form" id="settings-form">
             <fieldset class="settings-card">
@@ -336,9 +319,14 @@
           <div class="panel account-panel">
             <dl class="account-facts">
               <div><dt>ФИО</dt><dd id="account-view-name"></dd></div>
+              <div><dt>Программа</dt><dd id="account-view-program"></dd></div>
+              <div><dt>Курс</dt><dd id="account-view-year"></dd></div>
               <div><dt>Группа</dt><dd id="account-view-group"></dd></div>
+              <div><dt>Подгруппа</dt><dd id="account-view-sub"></dd></div>
+              <div><dt>Дисциплины</dt><dd id="account-view-subjects"></dd></div>
             </dl>
-            <p class="settings-hint">Эти данные хранит только этот браузер. Сервер их пока не получает.</p>
+            <p class="settings-hint">Имя хранится только в этом браузере. Выбор учебной группы используется для автоматического обновления DSBA.</p>
+            <button class="button button-primary" id="edit-profile-button" type="button">Изменить профиль</button>
             <button class="button button-ghost" id="logout-button" type="button">Выйти</button>
           </div>
         </section>
@@ -356,15 +344,38 @@
       </svg>
       <span class="eyebrow">Вааась, давай знакомиться</span>
       <h2 class="signup-title" id="signup-title">Вход в учебного агента</h2>
-      <label class="field">ФИО
-        <input class="input" name="name" id="signup-name" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" required minlength="5">
-      </label>
-      <label class="field">Номер группы
-        <input class="input" name="group" id="signup-group" type="text" placeholder="БПМИ251" required autocapitalize="characters" spellcheck="false">
-      </label>
+      <p class="settings-hint">Выбери свою программу и группу. Задания и материалы DSBA загрузятся после входа.</p>
+      <fieldset class="signup-fields" id="signup-fields" disabled>
+        <label class="field signup-wide">ФИО
+          <input class="input" name="name" id="signup-name" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" required minlength="5" maxlength="200">
+        </label>
+        <label class="field signup-wide">Программа
+          <select class="input" name="program" id="signup-program" required aria-label="Программа"></select>
+        </label>
+        <label class="field">Курс
+          <select class="input" name="year" id="signup-year" required aria-label="Курс"></select>
+        </label>
+        <label class="field">Группа
+          <select class="input" name="group" id="signup-group" aria-label="Группа"></select>
+        </label>
+        <label class="field signup-wide">Подгруппа
+          <select class="input" name="sub" id="signup-sub" aria-label="Подгруппа"></select>
+        </label>
+        <p class="settings-hint signup-wide">Без подгруппы доступны материалы всех подгрупп.</p>
+        <details class="signup-wide" id="signup-subject-options" hidden>
+          <summary>Выбрать дисциплины (необязательно)</summary>
+          <p class="settings-hint">Если ничего не выбрано, используются предметы группы.</p>
+          <div class="signup-subjects" id="signup-subjects"></div>
+        </details>
+      </fieldset>
+      <p class="settings-hint" id="signup-message" role="status" aria-live="polite"></p>
       <p class="signup-error" id="signup-error" role="alert" hidden></p>
-      <button class="button button-primary signup-submit" type="submit">Войти</button>
-      <p class="settings-hint">Данные хранит только этот браузер. Для загрузки материалов выбери группу DSBA в разделе «Источники».</p>
+      <button class="button button-ghost" id="signup-retry" type="button" hidden>Повторить загрузку списка</button>
+      <div class="signup-actions">
+        <button class="button button-ghost" id="signup-cancel" type="button" hidden>Отмена</button>
+        <button class="button button-primary signup-submit" id="signup-submit" type="submit" disabled>Войти</button>
+      </div>
+      <p class="settings-hint">Имя остаётся в браузере. Для DSBA передаются только параметры учебной группы.</p>
     </form>
   </dialog>
 

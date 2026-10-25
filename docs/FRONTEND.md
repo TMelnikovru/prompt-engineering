@@ -149,10 +149,12 @@ uv run python -m scripts.export_openapi --check
 
 ## DSBA Online
 
-Подключение не требует заранее выбранной сервером группы: запросите
+Экран входа автоматически подключает DSBA: запросите
 `GET /api/v1/integrations/dsba/catalog`, затем передайте выбранные
 `program`, `year`, `group`, `sub`, `subjects` в
 `POST /api/v1/integrations/dsba/sync`.
+В «Источниках» остаются состояния подключений; изменять программу/группу
+можно через учебный профиль. ФИО в запрос sync не включается.
 Ответный `source_id` сохраняется во фронтенде и передаётся как
 `dsba_source_id` в dashboard и `source_id` в documents.
 Без него dashboard не смешивает задания подключённых учебных групп.

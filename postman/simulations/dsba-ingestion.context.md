@@ -45,3 +45,11 @@ Native Chrome completed local profile, catalog/group selection, Sources,
 Materials (standalone lecture plus task link) and Tasks (exact/date-only/unknown
 deadlines). All upstream content was synthetic; the dsba member served the
 connector calls in NDJSON. No live production profile was selected by the test.
+
+2026-10-25 onboarding run (gateway 4916, isolated PostgreSQL): catalog-error
+kept login fields disabled and offered retry; restoring mode=ok let the native
+Chrome login select program/year/group/sub/subjects and automatically POST sync.
+The persisted selection was dsba/1/261/sub1/subjects=[cpp], with four records.
+The profile showed these fields, Sources had no manual connection form, and a
+reload reused the saved group. FIO stayed in the browser; gateway requests
+contained only the group parameters. The dsba member served the requests.
