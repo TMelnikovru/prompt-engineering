@@ -126,10 +126,6 @@ function plural(count, one, few, many) {
   return many;
 }
 
-function hm(minutes) {
-  return Math.floor(minutes / 60) + ":" + String(minutes % 60).padStart(2, "0");
-}
-
 function duration(minutes) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
@@ -156,6 +152,7 @@ function deadlineText(task, { long = false } = {}) {
   let day = dayMonth(due.day, long ? "long" : "short");
   if (offset === 0) day = "Сегодня";
   else if (offset === 1) day = "Завтра";
+  else if (offset < 0) day = "Просрочено, " + day;
   return day + (due.time ? ", " + due.time : long ? ", время не указано" : " · время не указано");
 }
 
@@ -219,21 +216,6 @@ function changeFor(task) {
 /* ---------- Анимации ---------- */
 const animate = () => !reducedMotion.matches;
 
-function countUp(element, to, format) {
-  const from = Number(element.dataset.value || 0);
-  element.dataset.value = to;
-  if (!animate() || from === to) { element.textContent = format(to); return; }
-  const started = performance.now();
-  const length = 900;
-  const step = (now) => {
-    const progress = Math.min((now - started) / length, 1);
-    const eased = 1 - Math.pow(1 - progress, 4);
-    element.textContent = format(Math.round(from + (to - from) * eased));
-    if (progress < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
 /* FLIP: элементы плавно переезжают на новые места после пересчёта. */
 function snapshot(list) {
   return new Map($$("[data-key]", list).map((item) => [item.dataset.key, item.getBoundingClientRect()]));
@@ -289,34 +271,55 @@ function renderHero() {
   const steps = plan.blocks.length;
 
   let eyebrow = "Вааась, не кипишуй";
-  let title = [steps + " " + plural(steps, "шаг", "шага", "шагов") + " на сегодня.", "Ты успеваешь."];
+  let title = "Сегодня " + steps + " " + plural(steps, "задание", "задания", "заданий") + " на " + duration(planned);
   if (!tasks.length) {
     eyebrow = "Вааась, учёба началась";
-    title = ["Пока пусто.", "Задания придут из источников."];
+    title = "Пока пусто: задания придут из источников";
   } else if (!steps) {
-    title = ["Плана на сегодня нет.", "Загляни в задания."];
+    title = "На сегодня в плане ничего нет";
   } else if (unscheduled.length) {
     eyebrow = "Вааась, сегодня плотно";
-    title[1] = "Остальное подождёт.";
   }
   $("#hero-eyebrow").textContent = eyebrow;
-  $("#hero-title").replaceChildren(...title.map((line) => node("span", "", line)));
+  $("#hero-title").textContent = title;
 
-  const next = tasks.filter((task) => !isDone(task) && deadline(task).day).sort(compareTasks)[0];
-  let lead = "Подключи источники, и агент соберёт задания и составит план дня.";
-  if (dueToday.length) {
-    const time = deadline(dueToday[0]).time;
-    lead = "Срок по «" + dueToday[0].title + "» истекает сегодня" + (time ? " в " + time : "") + ".";
-  } else if (next) {
-    lead = "Ближайший срок: «" + next.title + "», " + deadlineText(next).toLowerCase() + ".";
-  } else if (tasks.length) {
-    lead = "У заданий нет точных сроков. Агент расставил их по объёму.";
+  const facts = [];
+  const next = dueToday[0] || tasks.filter((task) => !isDone(task) && deadline(task).day).sort(compareTasks)[0];
+  if (next) {
+    const due = deadline(next);
+    const when = isToday(next) ? (due.time ? "до " + due.time : "сегодня") : deadlineText(next).toLowerCase();
+    facts.push(["Ближайшая сдача", next.course + ", " + when, isToday(next)]);
   }
-  $("#hero-lead").textContent = lead;
-  countUp($("#stat-planned"), planned, hm);
-  countUp($("#stat-available"), plan.available_minutes, hm);
-  countUp($("#stat-today"), dueToday.length, String);
-  $("#stat-today").classList.toggle("is-hot", dueToday.length > 0);
+  if (tasks.length) {
+    const reserve = plan.available_minutes - planned;
+    facts.push(reserve >= 0
+      ? ["В запасе", duration(reserve) + " из " + duration(plan.available_minutes)]
+      : ["Не хватает", duration(-reserve), true]);
+    const week = tasks.filter((task) => {
+      const day = deadline(task).day;
+      return !isDone(task) && day && daysBetween(plan.date, day) >= 0 && daysBetween(plan.date, day) <= 7;
+    });
+    if (week.length) {
+      const byDay = new Map();
+      for (const task of week) byDay.set(deadline(task).day, (byDay.get(deadline(task).day) || 0) + 1);
+      const [peak, count] = [...byDay].sort((a, b) => b[1] - a[1])[0];
+      const text = week.length + " " + plural(week.length, "сдача", "сдачи", "сдач");
+      facts.push(["На этой неделе", count > 1 ? text + ", больше всего " + weekdayIn(peak) : text]);
+    }
+    const done = tasks.filter(isDone).length;
+    facts.push(["Выполнено", done + " из " + tasks.length]);
+  }
+  $("#hero-facts").replaceChildren(...facts.map(([label, value, hot]) => {
+    const item = node("div", "fact");
+    const dd = node("dd", hot ? "is-hot" : "", value);
+    item.append(node("dt", "", label), dd);
+    return item;
+  }));
+}
+
+function weekdayIn(day) {
+  const names = ["в воскресенье", "в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу"];
+  return names[new Date(day + "T12:00:00Z").getUTCDay()];
 }
 
 function materialList(task) {
@@ -335,8 +338,6 @@ function renderPlan() {
   const before = snapshot(list);
   const planned = plan.blocks.reduce((sum, block) => sum + block.minutes, 0);
 
-  $("#plan-sub").textContent = "Пересчитан в " + clock(meta.generated_at) + " · порядок по срокам и объёму";
-  $("#budget-label").textContent = duration(planned) + " из " + duration(plan.available_minutes);
   const fill = $("#budget-fill");
   const ratio = plan.available_minutes ? planned / plan.available_minutes : 0;
   requestAnimationFrame(() => { fill.style.width = Math.min(ratio, 1) * 100 + "%"; });
@@ -372,7 +373,7 @@ function renderPlan() {
   $("#overload").hidden = !unscheduled.length;
   if (unscheduled.length) {
     const count = unscheduled.length;
-    $("#overload-title").textContent = "Не помещается сегодня: " + count + " " + plural(count, "задание", "задания", "заданий");
+    $("#overload-title").textContent = "За пределами плана на сегодня: " + count + " " + plural(count, "задание", "задания", "заданий");
     $("#overload-text").textContent = "Агент перенёс их на потом. Добавь время или выбери главное.";
     $("#overload-list").replaceChildren(...unscheduled.map((task) => {
       const item = node("li");
@@ -382,7 +383,7 @@ function renderPlan() {
     }));
   }
   $("#plan-note").textContent = plan.note;
-  $("#plan-note").hidden = !plan.note || !plan.blocks.length;
+  $("#plan-note").hidden = !plan.note || !plan.blocks.length || meta.mode === "demo";
 }
 
 function dateTile(task) {
@@ -398,6 +399,12 @@ function dateTile(task) {
   } else if (due.day === state.dashboard.plan.date) {
     tile.classList.add("is-today");
     tile.append(node("strong", "", "СЕГОДНЯ"), node("span", "", due.time || "весь день"));
+  } else if (daysBetween(state.dashboard.plan.date, due.day) < 0) {
+    tile.classList.add("is-overdue");
+    tile.append(node("strong", "", "СРОК"), node("span", "", "прошёл"));
+  } else if (daysBetween(state.dashboard.plan.date, due.day) === 1) {
+    tile.classList.add("is-tomorrow");
+    tile.append(node("strong", "", "ЗАВТРА"), node("span", "", due.time || "весь день"));
   } else {
     const [, , day] = due.day.split("-");
     tile.append(node("strong", "", String(Number(day))), node("span", "", dayMonth(due.day).split(" ")[1] || ""));
@@ -574,7 +581,9 @@ function taskCard(task) {
   const copy = node("span", "task-copy");
   copy.append(node("span", "task-course", task.course), node("span", "task-title", task.title));
   const meta = node("span", "task-meta");
-  const dueChip = node("span", isToday(task) && !isDone(task) ? "chip chip-today" : "chip", deadlineText(task));
+  const offset = deadline(task).day ? daysBetween(state.dashboard.plan.date, deadline(task).day) : null;
+  const tone = isDone(task) ? "" : offset === 0 ? " chip-today" : offset < 0 && offset !== null ? " chip-overdue" : "";
+  const dueChip = node("span", "chip" + tone, deadlineText(task));
   meta.append(dueChip);
   if (changeFor(task)) meta.append(node("span", "changed-chip", "срок перенесён"));
   const minutes = minutesFor(task);
@@ -600,7 +609,7 @@ function taskCard(task) {
   const actions = node("div", "task-actions");
   const original = task.evidence.find((entry) => entry.url);
   if (original) {
-    const link = node("a", "button button-ghost", "Открыть оригинал");
+    const link = node("a", "button button-ghost", "Открыть в " + sourceName(original.source_id));
     link.href = original.url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";

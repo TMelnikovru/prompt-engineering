@@ -55,14 +55,14 @@
           <a class="nav-link" href="#sources" data-nav="sources"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники<span class="nav-alert" id="nav-source-alert" hidden></span></a>
           <a class="nav-link" href="#settings" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Настройки</a>
         </nav>
-        <nav class="nav-group" aria-label="Скоро">
-          <span class="nav-caption">Скоро</span>
+        <details class="nav-group nav-more" id="nav-more">
+          <summary class="nav-link nav-soon"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Скоро в агенте<span class="nav-count">5</span><svg class="icon nav-more-chevron" aria-hidden="true"><use href="/static/icons.svg#chevron"></use></svg></summary>
           <a class="nav-link nav-soon" href="#calendar" data-nav="calendar"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Календарь</a>
           <a class="nav-link nav-soon" href="#events" data-nav="events"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#events"></use></svg>Мероприятия</a>
           <a class="nav-link nav-soon" href="#clubs" data-nav="clubs"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#clubs"></use></svg>Клубы и кружки</a>
           <a class="nav-link nav-soon" href="#minors" data-nav="minors"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#minors"></use></svg>Майноры</a>
           <a class="nav-link nav-soon" href="#tutor" data-nav="tutor"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tutor"></use></svg>ИИ-репетитор</a>
-        </nav>
+        </details>
       </div>
 
       <a class="account-link" href="#account" data-nav="account">
@@ -107,12 +107,7 @@
             <div class="hero-copy">
               <span class="eyebrow" id="hero-eyebrow"></span>
               <h1 class="hero-title" id="hero-title"></h1>
-              <p class="hero-lead" id="hero-lead"></p>
-              <div class="hero-stats">
-                <div class="stat"><span class="stat-value" id="stat-planned">0:00</span><span class="stat-label">в плане</span></div>
-                <div class="stat"><span class="stat-value" id="stat-available">0:00</span><span class="stat-label">свободно сегодня</span></div>
-                <div class="stat"><span class="stat-value" id="stat-today">0</span><span class="stat-label">сдать сегодня</span></div>
-              </div>
+              <dl class="hero-facts" id="hero-facts"></dl>
             </div>
             <svg class="hero-pattern" viewBox="0 0 360 260" aria-hidden="true">
               <polygon style="--i: 0" points="0,260 96,0 150,0 54,260" fill="#163a8a"/>
@@ -127,16 +122,10 @@
           <div class="today-grid">
             <section class="panel panel-plan" aria-labelledby="plan-title">
               <div class="panel-heading">
-                <div>
-                  <h2 class="panel-title" id="plan-title">План на сегодня</h2>
-                  <p class="panel-sub" id="plan-sub"></p>
-                </div>
+                <h2 class="panel-title" id="plan-title">План на сегодня</h2>
                 <a class="panel-link" href="#settings">Изменить время</a>
               </div>
-              <div class="budget">
-                <div class="budget-row"><span>Учебная нагрузка</span><strong id="budget-label"></strong></div>
-                <div class="budget-track"><span class="budget-fill" id="budget-fill"></span></div>
-              </div>
+              <div class="budget-track" aria-hidden="true"><span class="budget-fill" id="budget-fill"></span></div>
               <ol class="plan-list" id="plan-list"></ol>
               <div class="empty-state" id="plan-empty" hidden>
                 <strong>Плана пока нет</strong>
@@ -181,7 +170,6 @@
           <div class="view-heading">
             <div>
               <h1 class="view-title" id="tasks-title">Задания</h1>
-              <p class="view-lead">У каждого срока есть источник и цитата. Приоритет и время предлагает агент, ты можешь их поправить.</p>
             </div>
           </div>
           <div class="toolbar">
