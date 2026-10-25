@@ -38,6 +38,12 @@ catalog and records from both Mac and the production server network. It
 does not establish access to private Classroom or PDF contents, nor a
 permanent guarantee that the site's public interface will stay unchanged.
 
+2026-10-25 frontend2 merge run (gateway 4920, isolated PostgreSQL): catalog,
+group 261/sub1/cpp sync and selected dashboard passed seven Postman assertions.
+The dashboard contained three tasks and one standalone material, with no fake
+tasks. The dsba member served catalog/subjects/deadlines/materials in NDJSON;
+no member stayed unwired. This run used synthetic upstream content only.
+
 2026-10-25 combined release run: gateway port 4914, real FastAPI and isolated
 PostgreSQL. Group 261 sync passed two Postman assertions; dashboard passed three
 assertions for three tasks, one standalone material and material provenance.
