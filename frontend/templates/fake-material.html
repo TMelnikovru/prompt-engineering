@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ title }} · Фейк-данные</title>
-<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/app.css').path }}">
 <style>body{display:block;padding:clamp(24px,6vw,80px)}main{max-width:720px;margin:auto}h1{margin:32px 0 16px}p{line-height:1.7;margin:20px 0}a{color:inherit}</style>
 </head>
 <body><main><a href="/">← Вернуться к учебному агенту</a>

@@ -17,6 +17,10 @@ def test_login_collects_dsba_selection_without_manual_connection_form():
         assert html.body["data-demo-mode"] == "false"
         login = html.select_one("#signup-form")
         assert login.select_one('input[name="name"]')
+        assert {o["value"] for o in login.select('select[name="data_source"] option')} == {
+            "fake",
+            "live",
+        }
         for name in ("program", "year", "group", "sub"):
             assert login.select_one(f'select[name="{name}"]'), name
         assert login.select_one("#signup-subject-options")
@@ -64,13 +68,21 @@ def test_profile_migration_and_catalog_boundaries():
       import fs from 'node:fs';
       import assert from 'node:assert/strict';
       const code = fs.readFileSync(process.argv[1], 'utf8');
-      const {normalizeName, completeProfile, savedSelection, selectionFromCatalog} = await import(
+      const {normalizeName, completeProfile, savedSelection, selectionFromCatalog,
+        selectedDataSource} = await import(
         'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
       );
       const catalog = JSON.parse(fs.readFileSync(0, 'utf8'));
       const selection = {program:'dsba', year:1, group:'261', sub:'', subjects:[]};
       const old = {name:'Тестовый Студент', group:'261'};
       const choice = {source_id:'dsba:' + 'a'.repeat(32), selection};
+      assert.equal(selectedDataSource(null, null), 'fake');
+      assert.equal(completeProfile({name:old.name, data_source:'fake'}, null), true);
+      assert.equal(completeProfile({name:'Однослово', data_source:'fake'}, null), false);
+      assert.equal(selectedDataSource(old, choice), 'live');
+      const fakeWithSavedDsba = {name:old.name, data_source:'fake', dsba:choice};
+      assert.equal(selectedDataSource(fakeWithSavedDsba, choice), 'fake');
+      assert.deepEqual(savedSelection(fakeWithSavedDsba, null), choice);
       assert.equal(completeProfile(old, null), false); // legacy name/group need DSBA choices
       assert.equal(completeProfile(old, savedSelection(old, choice)), true);
       assert.equal(normalizeName(null), '');

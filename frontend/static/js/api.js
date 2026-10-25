@@ -18,7 +18,7 @@ export async function fetchDashboard(scenario = "default", dsbaSourceId = null, 
     if (options.dataSource === "fake") {
       query.set("data_source", "fake");
       query.set("available_minutes", String(options.availableMinutes ?? 120));
-      query.set("completed", (options.completed || []).filter((id) => id.startsWith("fake-")).join(","));
+      query.set("completed", (options.completed || []).filter((id) => id.startsWith("fake-")).slice(-50).join(","));
     }
     const response = await fetch("/api/v1/dashboard?" + query, {
       signal: controller.signal,

@@ -1,6 +1,7 @@
 import { fetchDsbaCatalog, syncDsba } from "./api.js";
 import {
   PROFILE_KEY, SELECTION_KEY, normalizeName, savedSelection, completeProfile, selectionFromCatalog,
+  selectedDataSource,
 } from "./dsba-profile.js";
 
 function read(key) {
@@ -9,6 +10,10 @@ function read(key) {
 
 export function savedDsbaSelection() {
   return savedSelection(read(PROFILE_KEY), read(SELECTION_KEY));
+}
+
+export function savedDataSource() {
+  return selectedDataSource(read(PROFILE_KEY), savedDsbaSelection());
 }
 
 function options(select, values, placeholder) {
@@ -27,12 +32,14 @@ export function setupDsba(onConnected) {
   const dialog = document.querySelector("#signup");
   const form = document.querySelector("#signup-form");
   const fields = document.querySelector("#signup-fields");
+  const dsbaFields = document.querySelector("#signup-dsba-fields");
   const error = document.querySelector("#signup-error");
   const message = document.querySelector("#signup-message");
   const retry = document.querySelector("#signup-retry");
   const submit = document.querySelector("#signup-submit");
   const cancel = document.querySelector("#signup-cancel");
   const subjectsList = document.querySelector("#signup-subjects");
+  const dataSource = form.elements.data_source;
   const program = form.elements.program;
   const year = form.elements.year;
   const group = form.elements.group;
@@ -72,18 +79,21 @@ export function setupDsba(onConnected) {
 
   function renderProfile() {
     const name = normalizeName(profile?.name);
+    const fake = selectedDataSource(profile, saved) === "fake";
     const s = saved?.selection;
     document.querySelector("#account-name").textContent = name
       ? name.split(" ").slice(0, 2).join(" ") : "Аккаунт";
-    document.querySelector("#account-group").textContent = s
+    document.querySelector("#account-group").textContent = fake ? "Фейк-данные" : s
       ? (s.group ? "группа " + s.group : s.year + " курс") : "вход и данные";
     document.querySelector("#account-view-name").textContent = name || "—";
-    document.querySelector("#account-view-group").textContent = s ? s.group || "Общие материалы курса" : "—";
-    document.querySelector("#account-view-program").textContent = profile?.program_name || s?.program.toUpperCase() || "—";
-    document.querySelector("#account-view-year").textContent = s ? s.year + " курс" : "—";
-    document.querySelector("#account-view-sub").textContent = s?.sub || "Все доступные";
+    document.querySelector("#account-view-group").textContent = fake ? "Демонстрационная" : s ? s.group || "Общие материалы курса" : "—";
+    document.querySelector("#account-view-program").textContent = fake ? "Фейк-данные" : profile?.program_name || s?.program.toUpperCase() || "—";
+    document.querySelector("#account-view-year").textContent = fake ? "—" : s ? s.year + " курс" : "—";
+    document.querySelector("#account-view-sub").textContent = fake ? "—" : s?.sub || "Все доступные";
     const names = Array.isArray(profile?.subject_names) ? profile.subject_names : [];
-    document.querySelector("#account-view-subjects").textContent = names.join(", ")
+    document.querySelector("#account-view-subjects").textContent = fake
+      ? "Статистика, алгоритмы, программный проект, машинное обучение"
+      : names.join(", ")
       || (s?.subjects?.length ? "Выбрано дисциплин: " + s.subjects.length : "Предметы группы");
     const avatar = document.querySelector("#account-avatar");
     avatar.textContent = name ? name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase() : "?";
@@ -124,10 +134,24 @@ export function setupDsba(onConnected) {
     fillGroup(selection);
   }
 
+  function renderSourceForm() {
+    const fake = dataSource.value === "fake";
+    fields.disabled = submitting;
+    dsbaFields.hidden = fake;
+    dsbaFields.disabled = fake || !catalog || submitting;
+    submit.disabled = submitting || (!fake && !catalog);
+    retry.hidden = fake || !!catalog || !!loadingCatalog;
+    message.textContent = fake
+      ? "Покажем вымышленные задания, дедлайны, материалы и план на сегодня."
+      : catalog ? "После входа задания и материалы DSBA загрузятся автоматически."
+        : loadingCatalog ? "Загружаем программы и группы DSBA…"
+          : "Нужно загрузить список программ DSBA. Повторите попытку.";
+  }
+
   async function loadCatalog() {
     if (loadingCatalog) return loadingCatalog;
     loadingCatalog = (async () => {
-      fields.disabled = true;
+      dsbaFields.disabled = true;
       submit.disabled = true;
       retry.hidden = true;
       message.textContent = "Загружаем программы и группы DSBA…";
@@ -136,8 +160,7 @@ export function setupDsba(onConnected) {
         options(program, catalog.programs.map((p) => [p.id, p.name]), "Выберите программу");
         program.value = saved?.selection.program || "";
         fillYear(saved?.selection);
-        fields.disabled = false;
-        submit.disabled = false;
+        dsbaFields.disabled = false;
         message.textContent = "После входа задания и материалы загрузятся автоматически.";
       } catch (e) {
         catalog = null;
@@ -146,20 +169,23 @@ export function setupDsba(onConnected) {
         retry.hidden = false;
       }
     })();
-    try { await loadingCatalog; } finally { loadingCatalog = null; }
+    try { await loadingCatalog; } finally { loadingCatalog = null; renderSourceForm(); }
   }
 
   function open(edit = false) {
     if (dialog.open || (!edit && completeProfile(profile, saved))) return;
     form.elements.name.value = normalizeName(profile?.name);
+    dataSource.value = selectedDataSource(profile, saved);
     error.hidden = true;
     cancel.hidden = !completeProfile(profile, saved);
     dialog.showModal();
-    loadCatalog();
+    renderSourceForm();
+    if (dataSource.value === "live") loadCatalog();
   }
 
   async function resume() {
-    if (resumeRunning || dialog.open || !completeProfile(profile, saved)) return;
+    if (resumeRunning || dialog.open || !completeProfile(profile, saved)
+      || selectedDataSource(profile, saved) === "fake") return;
     resumeRunning = true;
     const token = revision;
     const choice = saved;
@@ -172,7 +198,7 @@ export function setupDsba(onConnected) {
       profile = { ...profile, dsba: saved };
       persistProfile();
       renderProfile();
-      await onConnected(result.source_id, changed);
+      await onConnected(result.source_id, changed, "live");
     } catch (e) {
       if (token !== revision) return;
       if (e.status === 400) {
@@ -188,6 +214,11 @@ export function setupDsba(onConnected) {
 
   program.addEventListener("change", () => fillYear());
   year.addEventListener("change", () => fillGroup());
+  dataSource.addEventListener("change", () => {
+    error.hidden = true;
+    renderSourceForm();
+    if (dataSource.value === "live") loadCatalog();
+  });
   retry.addEventListener("click", () => { error.hidden = true; loadCatalog(); });
   cancel.addEventListener("click", () => { if (!submitting) dialog.close(); });
   dialog.addEventListener("cancel", (event) => {
@@ -197,17 +228,18 @@ export function setupDsba(onConnected) {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (submitting || !catalog) return;
+    const fake = dataSource.value === "fake";
+    if (submitting || (!fake && !catalog)) return;
     const name = normalizeName(form.elements.name.value);
     if (name.split(" ").length < 2) {
       showError("Напишите фамилию и имя, можно с отчеством.");
       return;
     }
-    const selection = selectionFromCatalog(catalog, {
+    const selection = fake ? null : selectionFromCatalog(catalog, {
       program: program.value, year: year.value, group: group.value, sub: sub.value,
       subjects: [...subjectsList.querySelectorAll("input:checked")].map((input) => input.value),
     });
-    if (!selection) {
+    if (!fake && !selection) {
       showError("Выберите программу, курс и группу из списка DSBA.");
       return;
     }
@@ -220,16 +252,18 @@ export function setupDsba(onConnected) {
     submit.disabled = true;
     cancel.disabled = true;
     form.setAttribute("aria-busy", "true");
-    message.textContent = "Загружаем задания и материалы вашей группы…";
+    message.textContent = fake ? "Открываем фейк-данные…" : "Загружаем задания и материалы вашей группы…";
     submit.textContent = "Загружаем…";
     try {
-      const result = await syncDsba(selection);
-      if (!validResult(result)) throw new Error("Сервер вернул неполный ответ. Попробуйте ещё раз.");
-      const resetPersonal = saved?.source_id !== result.source_id;
-      const choice = { source_id: result.source_id, selection };
+      const result = fake ? null : await syncDsba(selection);
+      if (!fake && !validResult(result)) throw new Error("Сервер вернул неполный ответ. Попробуйте ещё раз.");
+      const mode = fake ? "fake" : "live";
+      const resetPersonal = selectedDataSource(profile, saved) !== mode
+        || (!fake && saved?.source_id !== result.source_id);
+      const choice = fake ? saved : { source_id: result.source_id, selection };
       const y = selectedYear();
-      profile = {
-        name, group: selection.group, dsba: choice,
+      profile = fake ? { ...profile, name, data_source: "fake", dsba: choice } : {
+        name, group: selection.group, dsba: choice, data_source: "live",
         program_name: catalog.programs.find((p) => p.id === selection.program).name,
         subject_names: selection.subjects.map((id) => y.names[id] || id),
       };
@@ -239,7 +273,7 @@ export function setupDsba(onConnected) {
       persistProfile();
       if (resetPersonal) clearPersonalData();
       renderProfile();
-      await onConnected(result.source_id, resetPersonal);
+      await onConnected(fake ? null : result.source_id, resetPersonal, mode);
       dialog.close();
     } catch (e) {
       showError(e.message);
@@ -251,8 +285,7 @@ export function setupDsba(onConnected) {
         : "Профиль не изменён. Проверьте данные и повторите вход.";
     } finally {
       submitting = false;
-      fields.disabled = !catalog;
-      submit.disabled = !catalog;
+      renderSourceForm();
       cancel.disabled = false;
       form.removeAttribute("aria-busy");
       submit.textContent = "Войти";
@@ -270,7 +303,7 @@ export function setupDsba(onConnected) {
     saved = null;
     clearPersonalData();
     renderProfile();
-    await onConnected(null, true);
+    await onConnected(null, true, "fake");
     open();
   });
   renderProfile();

@@ -1,6 +1,6 @@
 import { fetchDashboard } from "./api.js";
 import { sourceStatusLabel, sourceNeedsAttention } from "./source-status.js";
-import { savedDsbaSelection, setupDsba } from "./dsba.js";
+import { savedDsbaSelection, savedDataSource, setupDsba } from "./dsba.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -12,6 +12,7 @@ const priorityLabels = { high: "высокий", medium: "средний", low: 
 const state = {
   dashboard: null,
   dsbaSourceId: savedDsbaSelection()?.source_id || null,
+  dataSource: savedDataSource(),
   filter: "all",
   course: "",
   materials: { query: "", course: "", today: false },
@@ -303,7 +304,7 @@ function materialList(task) {
 }
 
 function renderPlan() {
-  const { plan, meta } = state.dashboard;
+  const { plan } = state.dashboard;
   const list = $("#plan-list");
   const before = snapshot(list);
   const planned = plan.blocks.reduce((sum, block) => sum + block.minutes, 0);
@@ -353,7 +354,7 @@ function renderPlan() {
     }));
   }
   $("#plan-note").textContent = plan.note;
-  $("#plan-note").hidden = !plan.note || !plan.blocks.length || meta.mode === "demo";
+  $("#plan-note").hidden = !plan.note;
 }
 
 function dateTile(task) {
@@ -594,7 +595,7 @@ function taskCard(task) {
     link.prepend(icon("external"));
     actions.append(link);
   }
-  if (task.status !== "done") {
+  if (task.status !== "done" || state.done.has(task.id)) {
     const done = node("button", "button button-primary", state.done.has(task.id) ? "Вернуть в работу" : "Готово");
     done.type = "button";
     done.addEventListener("click", () => toggleDone(task));
@@ -611,8 +612,11 @@ function toggleDone(task) {
   if (wasDone) state.done.delete(task.id);
   else state.done.add(task.id);
   save("done", [...state.done]);
-  toast(wasDone ? "Задание снова в работе" : "Задание готово", "Отметку запомнил этот браузер. Сервер узнает о ней вместе с API заданий.");
+  toast(wasDone ? "Задание снова в работе" : "Задание готово", state.dataSource === "fake"
+    ? "Отметка сохранена в браузере. Пример плана пересчитывается."
+    : "Отметку запомнил этот браузер. Сервер узнает о ней вместе с API заданий.");
   renderAll();
+  if (state.dataSource === "fake") loadDashboard();
 }
 
 function renderCourses() {
@@ -838,6 +842,9 @@ function renderSources() {
 /* ---------- Настройки ---------- */
 function renderSettings() {
   const form = $("#settings-form");
+  $("#settings-mode-hint").textContent = state.dataSource === "fake"
+    ? "Настройки запоминает этот браузер. Доступное время учитывается в примере плана."
+    : "Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.";
   const defaults = { minutes: state.dashboard.plan.available_minutes, channels: ["site"], remind: "1440", sync: "30" };
   const settings = { ...defaults, ...state.settings };
   const choices = $$("input[name=minutes]", form);
@@ -862,6 +869,7 @@ $("#settings-form").addEventListener("submit", (event) => {
   save("settings", state.settings);
   $("#settings-saved").textContent = "Браузер запомнил настройки.";
   toast("Браузер запомнил настройки");
+  if (state.dataSource === "fake") loadDashboard();
 });
 
 /* ---------- Навигация ---------- */
@@ -954,8 +962,13 @@ async function loadDashboard() {
   try {
     const scenario = new URLSearchParams(location.search).get("scenario") || "default";
     const sourceId = state.dsbaSourceId;
-    const dashboard = await fetchDashboard(scenario, sourceId);
-    if (sourceId !== state.dsbaSourceId) { state.reloadRequested = true; return; }
+    const dataSource = state.dataSource;
+    const dashboard = await fetchDashboard(scenario, sourceId, {
+      dataSource, availableMinutes: state.settings?.minutes ?? 120, completed: [...state.done],
+    });
+    if (sourceId !== state.dsbaSourceId || dataSource !== state.dataSource) {
+      state.reloadRequested = true; return;
+    }
     state.dashboard = dashboard;
     detectChanges(state.dashboard.tasks);
     $("#load-error").hidden = true;
@@ -1100,7 +1113,7 @@ window.addEventListener("offline", () => {
 });
 window.addEventListener("online", loadDashboard);
 document.fonts?.ready.then(moveIndicator);
-const profileController = setupDsba(async (sourceId, resetPersonal) => {
+const profileController = setupDsba(async (sourceId, resetPersonal, dataSource) => {
   if (resetPersonal) {
     state.dashboard = null;
     applyView(state.view || "today");
@@ -1116,9 +1129,10 @@ const profileController = setupDsba(async (sourceId, resetPersonal) => {
     $$("[data-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item.dataset.filter === "all")));
   }
   state.dsbaSourceId = sourceId;
+  state.dataSource = dataSource;
   await loadDashboard();
 });
 setInterval(() => {
-  if (state.dsbaSourceId && !document.hidden) loadDashboard();
+  if ((state.dsbaSourceId || state.dataSource === "fake") && !document.hidden) loadDashboard();
 }, 60000);
 loadDashboard();

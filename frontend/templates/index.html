@@ -206,7 +206,7 @@
           <div class="view-heading">
             <div>
               <h1 class="view-title" id="settings-title">Настройки</h1>
-              <p class="view-lead">Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.</p>
+              <p class="view-lead" id="settings-mode-hint">Настройки запоминает этот браузер.</p>
             </div>
             <a class="button button-ghost" href="#account">Учебный профиль</a>
           </div>
@@ -223,7 +223,7 @@
             </fieldset>
             <fieldset class="settings-card">
               <legend>Напоминания</legend>
-              <p class="settings-hint">Выбери канал и время. На каждый срок агент присылает одно напоминание.</p>
+              <p class="settings-hint">Выбор канала и времени сохраняется в браузере. Отправка напоминаний ещё не подключена.</p>
               <div class="choice-row">
                 <label class="choice"><input type="checkbox" name="channel" value="site"><span>Сайт</span></label>
                 <label class="choice"><input type="checkbox" name="channel" value="telegram"><span>Telegram</span></label>
@@ -325,7 +325,7 @@
               <div><dt>Подгруппа</dt><dd id="account-view-sub"></dd></div>
               <div><dt>Дисциплины</dt><dd id="account-view-subjects"></dd></div>
             </dl>
-            <p class="settings-hint">Имя хранится только в этом браузере. Выбор учебной группы используется для автоматического обновления DSBA.</p>
+            <p class="settings-hint">Имя и выбор источника хранятся в этом браузере. Для настоящих заданий выбери DSBA Online в профиле.</p>
             <button class="button button-primary" id="edit-profile-button" type="button">Изменить профиль</button>
             <button class="button button-ghost" id="logout-button" type="button">Выйти</button>
           </div>
@@ -344,11 +344,18 @@
       </svg>
       <span class="eyebrow">Вааась, давай знакомиться</span>
       <h2 class="signup-title" id="signup-title">Вход в учебного агента</h2>
-      <p class="settings-hint">Выбери свою программу и группу. Задания и материалы DSBA загрузятся после входа.</p>
-      <fieldset class="signup-fields" id="signup-fields" disabled>
+      <p class="settings-hint">Начни с примера или выбери свою группу DSBA Online.</p>
+      <fieldset class="signup-fields" id="signup-fields">
         <label class="field signup-wide">ФИО
           <input class="input" name="name" id="signup-name" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" required minlength="5" maxlength="200">
         </label>
+        <label class="field signup-wide">Источник данных
+          <select class="input" name="data_source" id="signup-data-source">
+            <option value="fake">Фейк-данные — посмотреть возможности</option>
+            <option value="live">DSBA Online — моя учебная группа</option>
+          </select>
+        </label>
+        <fieldset class="signup-fields signup-wide" id="signup-dsba-fields" hidden disabled>
         <label class="field signup-wide">Программа
           <select class="input" name="program" id="signup-program" required aria-label="Программа"></select>
         </label>
@@ -367,13 +374,14 @@
           <p class="settings-hint">Если ничего не выбрано, используются предметы группы.</p>
           <div class="signup-subjects" id="signup-subjects"></div>
         </details>
+        </fieldset>
       </fieldset>
       <p class="settings-hint" id="signup-message" role="status" aria-live="polite"></p>
       <p class="signup-error" id="signup-error" role="alert" hidden></p>
       <button class="button button-ghost" id="signup-retry" type="button" hidden>Повторить загрузку списка</button>
       <div class="signup-actions">
         <button class="button button-ghost" id="signup-cancel" type="button" hidden>Отмена</button>
-        <button class="button button-primary signup-submit" id="signup-submit" type="submit" disabled>Войти</button>
+        <button class="button button-primary signup-submit" id="signup-submit" type="submit">Войти</button>
       </div>
       <p class="settings-hint">Имя остаётся в браузере. Для DSBA передаются только параметры учебной группы.</p>
     </form>

@@ -22,7 +22,12 @@ export function savedSelection(profile, legacy) {
 
 export function completeProfile(profile, choice) {
   return normalizeName(profile?.name).split(" ").filter(Boolean).length >= 2
-    && validSavedSelection(choice);
+    && (profile?.data_source === "fake" || validSavedSelection(choice));
+}
+
+export function selectedDataSource(profile, choice) {
+  if (["fake", "live"].includes(profile?.data_source)) return profile.data_source;
+  return validSavedSelection(choice) ? "live" : "fake";
 }
 
 export function selectionFromCatalog(catalog, value) {
