@@ -87,6 +87,8 @@ pip-вариант: `uv export --frozen --no-dev --no-hashes --no-header -o requ
 Рабочее развёртывание на `docker-prod`, PostgreSQL и автоматическое обновление
 из `main`: [инструкция](docs/DEPLOYMENT.md). Прокси настраивается отдельно.
 
+DSBA Online: [подключение через фронтенд и контракт API](docs/DSBA.md).
+
 ~~~sh
 docker build -t hse-study-agent .
 docker run --rm -p 8000:8000 --env-file .env hse-study-agent

@@ -9,7 +9,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
-from app.connectors.wiki import WikiBatch, WikiConnector, WikiError, WikiPage
+from app.connectors.base import DocumentRecord
+from app.connectors.wiki import WikiBatch, WikiConnector, WikiError
 from app.db.models import DocumentVersion, IngestionRun, IngestionSource, SourceDocument
 from app.db.session import Database
 
@@ -34,7 +35,7 @@ async def ingestion_lock(database: Database, name: str):
                 await connection.commit()
 
 
-async def store_page(database: Database, page: WikiPage) -> str:
+async def store_page(database: Database, page: DocumentRecord) -> str:
     async with database.session() as session, session.begin():
         document = await session.scalar(
             select(SourceDocument)
@@ -64,6 +65,23 @@ async def store_page(database: Database, page: WikiPage) -> str:
             )
         )
         if version is None:
+            attributes = {
+                **page.attributes,
+                "links": page.links,
+                "source_revision": page.revision_key,
+                "published_at": page.published_at.isoformat() if page.published_at else None,
+            }
+            if document.current_version_id and page.attributes.get("kind") == "deadline":
+                previous = await session.get(DocumentVersion, document.current_version_id)
+                old_facts = previous.attributes.get("facts", {})
+                new_facts = page.attributes.get("facts", {})
+                if old_facts.get("due_raw") != new_facts.get("due_raw"):
+                    attributes["deadline_change"] = {
+                        "from": old_facts.get("due_raw"),
+                        "to": new_facts.get("due_raw"),
+                        "previous_evidence": previous.content_text,
+                        "previous_fetched_at": previous.fetched_at.isoformat(),
+                    }
             version = DocumentVersion(
                 id=uuid4(),
                 document_id=document.id,
@@ -72,15 +90,16 @@ async def store_page(database: Database, page: WikiPage) -> str:
                 raw_content=page.raw_content,
                 content_text=page.text,
                 fetched_at=page.fetched_at,
-                attributes={"links": page.links, "source_revision": page.revision_key},
+                attributes=attributes,
             )
             session.add(version)
             await session.flush()
-        changed = document.current_version_id != version.id
+        changed = document.current_version_id != version.id or document.is_active is False
         document.current_version_id = version.id
         document.title = page.title
         document.url = page.url
         document.last_seen_at = page.fetched_at
+        document.is_active = True
         return "created" if created else "updated" if changed else "unchanged"
 
 

@@ -176,3 +176,11 @@ meter::-moz-meter-bar { background: #a8c68b; border-radius: 6px; }
   .mode-notice { font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.dsba-connection { margin: 0 20px 20px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.dsba-connection summary { cursor: pointer; font-weight: 600; }
+.dsba-connection p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.dsba-connection fieldset { border: 0; padding: 0; margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.dsba-connection label { display: grid; gap: 6px; flex: 1 1 140px; font-size: 12px; }
+.dsba-connection select { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.dsba-connection ul { padding-left: 20px; font-size: 13px; line-height: 1.7; max-height: 340px; overflow: auto; }
+.deadline-change { padding: 10px; border-radius: 8px; background: var(--accent); font-size: 12px; }

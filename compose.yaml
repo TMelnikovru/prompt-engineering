@@ -31,6 +31,11 @@ services:
       HSE_WIKI_REQUEST_TIMEOUT: ${HSE_WIKI_REQUEST_TIMEOUT:-}
       HSE_WIKI_REQUEST_DELAY: ${HSE_WIKI_REQUEST_DELAY:-}
       HSE_INGESTION_TOKEN: ${HSE_INGESTION_TOKEN:-}
+      HSE_DSBA_BASE_URL: ${HSE_DSBA_BASE_URL:-}
+      HSE_DSBA_REQUEST_TIMEOUT: ${HSE_DSBA_REQUEST_TIMEOUT:-}
+      HSE_DSBA_MAX_RECORDS: ${HSE_DSBA_MAX_RECORDS:-}
+      HSE_DSBA_MAX_PROFILES: ${HSE_DSBA_MAX_PROFILES:-}
+      HSE_DSBA_INTERVAL_SECONDS: ${HSE_DSBA_INTERVAL_SECONDS:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +60,17 @@ services:
     restart: unless-stopped
     init: true
     command: [python, -m, app.ingest, worker, --analyze, --summarize, --limit, "25", --summary-limit, "25"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  dsba-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.dsba, worker]
     environment: *app-environment
     depends_on:
       postgres:

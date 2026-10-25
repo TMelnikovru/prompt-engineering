@@ -62,6 +62,7 @@ class DocumentDetail(BaseModel):
     fetched_at: datetime
     last_seen_at: datetime
     version_count: int
+    is_active: bool = True
     analysis: dict[str, Any] | None = None
 
 

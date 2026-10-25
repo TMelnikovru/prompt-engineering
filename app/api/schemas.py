@@ -26,6 +26,8 @@ class Evidence(BaseModel):
     quote: str
     url: str | None = None
     published_at: AwareDatetime | None = None
+    fetched_at: AwareDatetime | None = None
+    external_id: str | None = None
 
 
 class Task(BaseModel):
@@ -43,6 +45,8 @@ class Task(BaseModel):
     estimated_minutes: int | None = Field(default=None, ge=1)
     materials: list[str] = Field(default_factory=list)
     evidence: list[Evidence]
+    due_requires_confirmation: bool = False
+    deadline_changed: str | None = None
 
     @model_validator(mode="after")
     def one_deadline_representation(self) -> "Task":

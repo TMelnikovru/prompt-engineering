@@ -1,8 +1,9 @@
 import { fetchDashboard } from "./api.js";
+import { savedDsbaSelection, setupDsba } from "./dsba.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
-const state = { dashboard: null, filter: "all" };
+const state = { dashboard: null, filter: "all", dsbaSourceId: savedDsbaSelection()?.source_id || null };
 const viewCopy = {
   overview: ["ФОКУС НА СЕГОДНЯ", "Понятно, с чего начать.", "Задания, материалы и план на день — в одном месте."],
   tasks: ["НИЧЕГО НЕ ПОТЕРЯЕТСЯ", "Всё, что предстоит.", "Сроки и подтверждающие источники под рукой."],
@@ -37,6 +38,7 @@ function deadlineDay(task) {
 }
 
 function deadlineLabel(task) {
+  if (task.due_requires_confirmation) return "Срок требует уточнения";
   const day = deadlineDay(task);
   if (!day) return "Срок уточняется";
   const label = day === state.dashboard.plan.date
@@ -93,6 +95,7 @@ function taskCard(task) {
     evidence.append(materials);
   }
   details.append(summary, evidence);
+  if (task.deadline_changed) evidence.prepend(node("p", "deadline-change", task.deadline_changed));
   item.append(details);
   return item;
 }
@@ -185,7 +188,7 @@ async function loadDashboard() {
   $("#load-description").textContent = "Сейчас здесь появятся задания и план.";
   try {
     const scenario = new URLSearchParams(location.search).get("scenario") || "default";
-    state.dashboard = await fetchDashboard(scenario);
+    state.dashboard = await fetchDashboard(scenario, state.dsbaSourceId);
     const { meta, tasks, plan } = state.dashboard;
     $("#mode-notice-text").textContent = meta.notice;
     $("#mode-notice").hidden = !meta.notice;
@@ -223,5 +226,12 @@ $$("[data-filter]").forEach((button) => button.addEventListener("click", () => {
 $("#refresh-button").addEventListener("click", loadDashboard);
 $("#retry-button").addEventListener("click", loadDashboard);
 window.addEventListener("hashchange", showView);
+setupDsba(async (sourceId) => {
+  state.dsbaSourceId = sourceId;
+  await loadDashboard();
+});
+setInterval(() => {
+  if (state.dsbaSourceId && !document.hidden) loadDashboard();
+}, 60000);
 showView();
 loadDashboard();

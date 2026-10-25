@@ -12,7 +12,7 @@
           "dashboard"
         ],
         "summary": "Задания, план дня и состояния источников",
-        "description": "Каркас API для фронтенда. По умолчанию возвращает явно помеченные учебные примеры. При HSE_DEMO_MODE=false возвращает пустые данные и mode=unconfigured. scenario=empty и scenario=error доступны только в демо-режиме.",
+        "description": "Задания и состояния источников. dsba_source_id выбирает только подключённую учебную группу DSBA; без него её задания не показываются. По умолчанию разработки возвращает явно помеченные учебные примеры. scenario=empty и scenario=error доступны только в демо-режиме.",
         "operationId": "dashboard_api_v1_dashboard_get",
         "parameters": [
           {
@@ -22,6 +22,23 @@
             "schema": {
               "$ref": "#/components/schemas/PreviewScenario",
               "default": "default"
+            }
+          },
+          {
+            "name": "dsba_source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^dsba:[0-9a-f]{32}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dsba Source Id"
             }
           }
         ],
@@ -119,6 +136,138 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/dsba/catalog": {
+      "get": {
+        "tags": [
+          "DSBA Online"
+        ],
+        "summary": "Catalog",
+        "description": "Текущий публичный каталог программ, курсов, групп и предметов dsba.online.",
+        "operationId": "catalog_api_v1_integrations_dsba_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DsbaCatalog"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/dsba/sync": {
+      "post": {
+        "tags": [
+          "DSBA Online"
+        ],
+        "summary": "Synchronize",
+        "description": "Подключает выбранные во фронтенде программу, курс, группу и подгруппу. Читает только публичные предметы, материалы и дедлайны. Возвращает source_id, который нужно передавать в dashboard как dsba_source_id и documents как source_id. Повторный запрос в течение 60 секунд использует сохранённый результат. Выбранные наборы обновляются серверным dsba-worker без открытой вкладки. Это выбор публичной учебной группы, а не вход в личный аккаунт DSBA. Приватный Classroom и административные действия не вызываются. OpenAI не вызывается.",
+        "operationId": "synchronize_api_v1_integrations_dsba_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DsbaSelection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DsbaSyncResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DsbaSyncResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ],
+                  "title": "Response 502 Synchronize Api V1 Integrations Dsba Sync Post"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -613,6 +762,11 @@
             "type": "integer",
             "title": "Version Count"
           },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          },
           "analysis": {
             "anyOf": [
               {
@@ -729,6 +883,223 @@
         ],
         "title": "DocumentPreview"
       },
+      "DsbaCatalog": {
+        "properties": {
+          "academic_year": {
+            "type": "string",
+            "title": "Academic Year"
+          },
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/DsbaProgram"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Programs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "academic_year",
+          "programs"
+        ],
+        "title": "DsbaCatalog"
+      },
+      "DsbaProgram": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/DsbaYear"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Years"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "title",
+          "years"
+        ],
+        "title": "DsbaProgram"
+      },
+      "DsbaSelection": {
+        "properties": {
+          "program": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9-]+$",
+            "title": "Program"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Year"
+          },
+          "group": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Group",
+            "default": ""
+          },
+          "sub": {
+            "type": "string",
+            "maxLength": 8,
+            "title": "Sub",
+            "default": ""
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Subjects"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "program",
+          "year"
+        ],
+        "title": "DsbaSelection"
+      },
+      "DsbaSyncResult": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scope"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "created",
+          "updated",
+          "unchanged",
+          "errors",
+          "has_more",
+          "scope",
+          "source_id"
+        ],
+        "title": "DsbaSyncResult"
+      },
+      "DsbaYear": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Year"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "subgroups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subgroups"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subjects"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "label",
+          "groups",
+          "subgroups",
+          "subjects",
+          "names"
+        ],
+        "title": "DsbaYear"
+      },
       "Evidence": {
         "properties": {
           "source_id": {
@@ -765,6 +1136,29 @@
               }
             ],
             "title": "Published At"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
           }
         },
         "type": "object",
@@ -1125,6 +1519,22 @@
             },
             "type": "array",
             "title": "Evidence"
+          },
+          "due_requires_confirmation": {
+            "type": "boolean",
+            "title": "Due Requires Confirmation",
+            "default": false
+          },
+          "deadline_changed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline Changed"
           }
         },
         "type": "object",

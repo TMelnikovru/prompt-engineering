@@ -135,6 +135,24 @@
               <div><p class="eyebrow">ОТКУДА ПРИХОДЯТ ДАННЫЕ</p><h2>Твои источники</h2></div>
               <span class="source-total" id="source-total"></span>
             </div>
+            <details class="dsba-connection" id="dsba-connection">
+              <summary>Подключить или обновить dsba.online</summary>
+              <p>Программа, курс и группа определяют, какие материалы и дедлайны ты увидишь.</p>
+              <form id="dsba-form">
+                <fieldset disabled>
+                  <label>Программа<select name="program" required aria-label="Программа"></select></label>
+                  <label>Курс<select name="year" required aria-label="Курс"></select></label>
+                  <label>Группа<select name="group" aria-label="Группа"></select></label>
+                  <label>Подгруппа<select name="sub" aria-label="Подгруппа"></select></label>
+                  <button class="button button-primary" type="submit">Подключить группу</button>
+                </fieldset>
+              </form>
+              <p id="dsba-message" role="status" aria-live="polite"></p>
+              <div id="dsba-materials-section" hidden>
+                <h3>Материалы группы · до 100 записей</h3>
+                <ul id="dsba-materials"></ul>
+              </div>
+            </details>
             <ul id="source-list" class="source-list"></ul>
             <div class="panel-footer">
               PDF и другие учебные материалы поступают из подключённых источников.
