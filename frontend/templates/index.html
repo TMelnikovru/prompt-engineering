@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#1d4aa8">
   <meta name="description" content="Учебный агент для студентов Вышки: задания, сроки и план дня.">
-  <title>Учебный агент · Вышка</title>
+  <title>Учебный агент Вышки</title>
   <link rel="icon" href="{{ url_for('static', path='/favicon.svg').path }}" type="image/svg+xml">
   <link rel="preload" href="{{ url_for('static', path='/fonts/HSESans-Black.woff2').path }}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{{ url_for('static', path='/fonts/HSESans-Regular.woff2').path }}" as="font" type="font/woff2" crossorigin>
@@ -26,7 +26,7 @@
       <polygon style="--i: 3" points="410,720 670,0 700,0 440,720" fill="#9985c5"/>
       <polygon style="--i: 4" points="470,720 640,250 640,720" fill="#b3a5dc"/>
     </svg>
-    <span class="splash-eyebrow">УЧЕБНЫЙ АГЕНТ ВЫШКИ</span>
+    <span class="splash-eyebrow">Учебный агент Вышки</span>
     <p class="splash-word" aria-label="Вааааась">
       <span style="--i: 0" aria-hidden="true">В</span><span style="--i: 1" aria-hidden="true">а</span><span style="--i: 2" aria-hidden="true">а</span><span style="--i: 3" aria-hidden="true">а</span><span style="--i: 4" aria-hidden="true">а</span><span style="--i: 5" aria-hidden="true">а</span><span style="--i: 6" aria-hidden="true">с</span><span style="--i: 7" aria-hidden="true">ь</span>
     </p>
@@ -125,7 +125,7 @@
               <ol class="plan-list" id="plan-list"></ol>
               <div class="empty-state" id="plan-empty" hidden>
                 <strong>Плана пока нет</strong>
-                <p>Агент составит расписание на день, как только источники пришлют задания.</p>
+                <p>Расписание появится, когда источники пришлют задания.</p>
               </div>
               <div class="overload" id="overload" hidden>
                 <div class="overload-head">
@@ -209,14 +209,14 @@
             <p>Без подгруппы могут отображаться материалы обеих подгрупп.</p>
             <p id="dsba-message" role="status" aria-live="polite"></p>
             <div id="dsba-materials-section" hidden>
-              <h3>Материалы группы · до 100 записей</h3>
+              <h3>Материалы группы, первые 100</h3>
               <ul id="dsba-materials"></ul>
             </div>
           </details>
           <ul class="source-grid" id="source-grid"></ul>
           <div class="callout">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#info"></use></svg>
-            <p>Если один источник сломался, агент продолжает читать остальные. PDF и другие материалы агент берёт из подключённых источников.</p>
+            <p>Если один источник сломался, остальные продолжают обновляться. PDF агент берёт из подключённых источников.</p>
           </div>
         </section>
 
@@ -224,7 +224,7 @@
           <div class="view-heading">
             <div>
               <h1 class="view-title" id="settings-title">Настройки</h1>
-              <p class="view-lead">Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.</p>
+              <p class="view-lead">Настройки хранит этот браузер. Сервер их пока не получает, поэтому план и напоминания от них не меняются.</p>
             </div>
           </div>
           <form class="settings-form" id="settings-form">
@@ -236,11 +236,11 @@
                 <label class="choice"><input type="radio" name="minutes" value="120"><span>2 ч</span></label>
                 <label class="choice"><input type="radio" name="minutes" value="180"><span>3 ч</span></label>
                 <label class="choice"><input type="radio" name="minutes" value="240"><span>4 ч</span></label>
-                              </div>
+              </div>
             </fieldset>
             <fieldset class="settings-card">
               <legend>Напоминания</legend>
-              <p class="settings-hint">Выбери канал и время. На каждый срок агент присылает одно напоминание.</p>
+              <p class="settings-hint">Одно напоминание на каждый срок.</p>
               <div class="choice-row">
                 <label class="choice"><input type="checkbox" name="channel" value="site"><span>Сайт</span></label>
                 <label class="choice"><input type="checkbox" name="channel" value="telegram"><span>Telegram</span></label>

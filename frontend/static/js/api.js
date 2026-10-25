@@ -52,7 +52,7 @@ async function dsbaRequest(path, options = {}) {
     return body;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError("Не удалось получить данные DSBA. Попробуйте ещё раз.");
+    throw new ApiError("Не получилось получить данные DSBA. Попробуй ещё раз.");
   } finally {
     clearTimeout(timeout);
   }

@@ -39,7 +39,7 @@ export function setupDsba(onConnected) {
     const p = catalog.programs.find((item) => item.id === program.value);
     const y = p?.years.find((item) => item.year === Number(year.value));
     options(group, (y?.groups || []).map((value) => [value, value]),
-      y?.groups.length ? "Выберите группу" : "Общие материалы курса");
+      y?.groups.length ? "Выбери группу" : "Общие материалы курса");
     group.disabled = !y?.groups.length;
     group.required = !!y?.groups.length;
     options(sub, (y?.subgroups || []).map((value) => [value, value]), "Не выбрана");
@@ -48,7 +48,7 @@ export function setupDsba(onConnected) {
 
   function fillYear() {
     const p = catalog.programs.find((item) => item.id === program.value);
-    options(year, (p?.years || []).map((value) => [value.year, value.label]), "Выберите курс");
+    options(year, (p?.years || []).map((value) => [value.year, value.label]), "Выбери курс");
     year.disabled = !p;
     fillGroup();
   }
@@ -84,7 +84,7 @@ export function setupDsba(onConnected) {
     message.textContent = "Загружаем каталог dsba.online…";
     try {
       catalog = await fetchDsbaCatalog();
-      options(program, catalog.programs.map((item) => [item.id, item.name]), "Выберите программу");
+      options(program, catalog.programs.map((item) => [item.id, item.name]), "Выбери программу");
       fields.disabled = false;
       program.value = saved?.selection?.program || "";
       fillYear();
@@ -94,10 +94,10 @@ export function setupDsba(onConnected) {
       sub.value = saved?.selection?.sub || "";
       program.addEventListener("change", fillYear);
       year.addEventListener("change", fillGroup);
-      message.textContent = "Выберите свою учебную группу. Материалы обновляются и после закрытия сайта.";
+      message.textContent = "Выбери свою группу. Сервер обновляет её материалы, даже когда сайт закрыт.";
       await materials();
     } catch (error) {
-      message.textContent = error.message + " Закройте и снова откройте подключение для повтора.";
+      message.textContent = error.message + " Закрой и снова открой подключение, чтобы повторить.";
     } finally {
       loading = false;
     }
@@ -109,7 +109,7 @@ export function setupDsba(onConnected) {
       program: program.value, year: Number(year.value), group: group.value, sub: sub.value,
     };
     fields.disabled = true;
-    message.textContent = "Загружаем материалы и дедлайны выбранной группы…";
+    message.textContent = "Загружаем материалы и дедлайны группы…";
     try {
       const result = await syncDsba(selection);
       saved = { source_id: result.source_id, selection };
@@ -117,10 +117,10 @@ export function setupDsba(onConnected) {
       await onConnected(result.source_id);
       await materials();
       message.textContent = result.status === "failed"
-        ? "Обновление не удалось. Сохранённые данные доступны; сервер повторит попытку."
+        ? "Обновить не получилось. Старые данные на месте, сервер попробует ещё раз."
         : result.status === "partial"
-          ? "Часть данных загружена. Состояние подключения и ошибки показаны ниже."
-          : "Группа подключена. Дедлайны появились в заданиях; обновление выполняется автоматически.";
+          ? "Загрузили только часть данных. Что не получилось, видно в списке источников ниже."
+          : "Группа подключена, дедлайны уже в заданиях. Дальше сервер обновляет их сам.";
     } catch (error) {
       message.textContent = error.message;
     } finally {

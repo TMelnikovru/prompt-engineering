@@ -122,7 +122,22 @@ function deadlineText(task, { long = false } = {}) {
   if (offset === 0) day = "Сегодня";
   else if (offset === 1) day = "Завтра";
   else if (offset < 0) day = "Просрочено, " + day;
-  return day + (due.time ? ", " + due.time : long ? ", время не указано" : " · время не указано");
+  return day + (due.time ? ", " + due.time : ", время не указано");
+}
+
+/* Коротко для строки под курсом: «сдать до 23:00», «сдать завтра до 18:00», «сдать 28 окт». */
+function dueShort(task) {
+  if (task.due_requires_confirmation) return "срок нужно уточнить";
+  const due = deadline(task);
+  if (due.kind === "unknown") return "срок не указан";
+  const offset = daysBetween(state.dashboard.plan.date, due.day);
+  if (offset < 0) return "срок прошёл " + dayMonth(due.day);
+  const day = offset === 0 ? "" : offset === 1 ? "завтра " : dayMonth(due.day) + " ";
+  return ("сдать " + day + (due.time ? "до " + due.time : offset === 0 ? "сегодня" : "")).trim();
+}
+
+function moment(value) {
+  return dayMonth(dateKey(value)) + " в " + clock(value);
 }
 
 function signatureText(signature) {
@@ -203,15 +218,6 @@ function flip(list, before) {
       { duration: 600, easing: "cubic-bezier(.22, 1, .36, 1)" },
     );
   }
-}
-
-function stagger(items) {
-  items.forEach((item, index) => {
-    item.style.setProperty("--i", Math.min(index, 10));
-    item.classList.remove("reveal");
-    void item.offsetWidth;
-    item.classList.add("reveal");
-  });
 }
 
 function toast(title, text, tone = "info") {
@@ -326,7 +332,7 @@ function renderPlan() {
     rail.append(node("span", "plan-node"), node("span", "plan-line"));
 
     const card = node("div", "plan-card");
-    const course = node("span", "plan-course", task ? task.course + " · " + deadlineText(task).toLowerCase() : "");
+    const course = node("span", "plan-course", task ? task.course + ", " + dueShort(task) : "");
     if (task && changeFor(task)) course.append(node("span", "changed-chip", "срок перенесён"));
     if (task && isDone(task)) course.append(node("span", "chip chip-done", "готово"));
     card.append(course, node("strong", "plan-title", task?.title || "Учебная задача"));
@@ -347,7 +353,7 @@ function renderPlan() {
     $("#overload-list").replaceChildren(...unscheduled.map((task) => {
       const item = node("li");
       const minutes = minutesFor(task);
-      item.append(node("strong", "", task.title), node("span", "", (minutes ? "≈ " + minutes + " мин · " : "") + deadlineText(task)));
+      item.append(node("strong", "", task.title), node("span", "", dueShort(task) + (minutes ? ", около " + duration(minutes) : "")));
       return item;
     }));
   }
@@ -391,14 +397,16 @@ function renderDeadlines() {
     if (state.fresh.has(task.id)) item.classList.add("just-changed");
     const copy = node("span", "deadline-copy");
     const due = deadline(task);
-    const parts = [task.course];
-    if (due.kind === "exact" && !isToday(task)) parts.push(due.time);
-    if (due.kind === "date") parts.push("время не указано");
-    if (due.kind === "unknown") parts.push("срок не указан в источнике");
-    if (task.evidence[0]) parts.push(sourceName(task.evidence[0].source_id));
-    const meta = node("span", "", parts.join(" · "));
+    /* Дату и время для сегодня и завтра уже показывает плитка слева. */
+    const offset = due.day ? daysBetween(state.dashboard.plan.date, due.day) : null;
+    let note = "";
+    if (due.kind === "exact" && offset > 1) note = ", до " + due.time;
+    if (due.kind === "date") note = ", время не указано";
+    if (due.kind === "unknown") note = ", срок не указан";
+    const meta = node("span", "", task.course + note);
     if (changeFor(task)) meta.prepend(node("span", "changed-chip", "перенесён"), document.createTextNode(" "));
     copy.append(node("strong", "", task.title), meta);
+    if (task.evidence[0]) copy.append(node("span", "deadline-source", sourceName(task.evidence[0].source_id)));
     item.append(dateTile(task), copy);
     return item;
   }));
@@ -409,7 +417,7 @@ function renderDeadlines() {
 function sourceStatusText(source) {
   if (source.status === "connected" && source.last_synced_at) return "обновлён в " + clock(source.last_synced_at);
   if (source.status === "error") return source.error_message || "ошибка подключения";
-  if (source.status === "stale" && source.last_synced_at) return "устарели · " + clock(source.last_synced_at);
+  if (source.status === "stale" && source.last_synced_at) return "данные от " + clock(source.last_synced_at);
   return sourceStatusLabel(source.status).toLowerCase();
 }
 
@@ -441,7 +449,7 @@ function priorityFor(task) {
 function setOverride(task, patch) {
   state.overrides[task.id] = { ...state.overrides[task.id], ...patch };
   save("overrides", state.overrides);
-  toast("Браузер запомнил правку", "Сервер начнёт её учитывать вместе с API заданий.");
+  toast("Браузер запомнил правку", "Сервер её пока не видит, поэтому план не изменится.");
 }
 
 function duePanel(task) {
@@ -467,9 +475,9 @@ function duePanel(task) {
   }
   value.append(node("strong", "due-new", deadlineText(task, { long: true })));
   panel.append(value);
-  const zone = due.kind === "date" ? "Источник указал дату без времени" : "";
-  const noticed = change ? "агент заметил перенос в " + clock(change.at) : "";
-  const line = [zone, noticed].filter(Boolean).join(" · ");
+  const zone = due.kind === "date" ? "Источник указал дату без времени." : "";
+  const noticed = change ? "Агент заметил перенос в " + clock(change.at) + "." : "";
+  const line = [zone, noticed].filter(Boolean).join(" ");
   if (line) panel.append(node("span", "due-zone", line));
   return panel;
 }
@@ -481,7 +489,7 @@ function evidenceBlock(task) {
     const figure = node("figure", "evidence");
     figure.append(node("blockquote", "", entry.quote));
     const caption = node("figcaption");
-    let label = sourceName(entry.source_id) + " · " + entry.title;
+    const label = entry.title;
     let safeUrl = null;
     if (entry.url) {
       try {
@@ -498,11 +506,13 @@ function evidenceBlock(task) {
     } else {
       caption.append(document.createTextNode(label));
     }
-    if (entry.published_at) {
-      caption.append(document.createTextNode(" · опубликовано " + dayMonth(dateKey(entry.published_at)) + ", " + clock(entry.published_at)));
-    }
-    if (entry.fetched_at) {
-      caption.append(document.createTextNode(" · получено " + dayMonth(dateKey(entry.fetched_at)) + ", " + clock(entry.fetched_at)));
+    caption.append(document.createTextNode(", " + sourceName(entry.source_id) + "."));
+    const moments = [];
+    if (entry.published_at) moments.push("опубликовано " + moment(entry.published_at));
+    if (entry.fetched_at) moments.push("получено " + moment(entry.fetched_at));
+    if (moments.length) {
+      const text = moments.join(", ");
+      caption.append(document.createTextNode(" " + text[0].toUpperCase() + text.slice(1) + "."));
     }
     figure.append(caption);
     wrap.append(figure);
@@ -610,7 +620,7 @@ function toggleDone(task) {
   if (wasDone) state.done.delete(task.id);
   else state.done.add(task.id);
   save("done", [...state.done]);
-  toast(wasDone ? "Задание снова в работе" : "Задание готово", "Отметку запомнил этот браузер. Сервер узнает о ней вместе с API заданий.");
+  toast(wasDone ? "Задание снова в работе" : "Задание готово", "Отметку запомнил этот браузер, сервер о ней пока не знает.");
   renderAll();
 }
 
@@ -716,7 +726,9 @@ function materialCard(entry, query) {
     ...entry.tasks.flatMap((task) => task.evidence.map((item) => sourceName(item.source_id))),
     ...(entry.source_id ? [sourceName(entry.source_id)] : []),
   ])];
-  const meta = node("span", "material-meta", [first ? deadlineText(first) : null, ...sources].filter(Boolean).join(" · "));
+  const meta = node("span", "material-meta");
+  if (first) meta.append(node("span", "", dueShort(first)[0].toUpperCase() + dueShort(first).slice(1)));
+  if (sources.length) meta.append(node("span", "", sources.join(", ")));
   if (entry.tasks.length) body.append(links);
   body.append(meta);
   item.append(mark, body);
@@ -764,7 +776,6 @@ function renderMaterials() {
     group.append(heading, list);
     return group;
   }));
-  stagger($$("#materials-list .material-group"));
   const empty = !visible.length;
   $("#materials-empty").hidden = !empty;
   if (empty) {
@@ -831,10 +842,9 @@ async function loadSummary() {
       item.append(node("p", "", point.text), node("span", "chip", count + " " + plural(count, "источник", "источника", "источников")));
       return item;
     }));
-    const meta = node("p", "settings-hint", "Составлено " + dayMonth(dateKey(body.created_at)) + ", " + clock(body.created_at)
-      + " · модель " + body.model + ". Это пересказ агента, проверяй сроки в источниках.");
+    const meta = node("p", "settings-hint", "Модель " + body.model + " составила сводку " + moment(body.created_at)
+      + ". Это пересказ, сроки сверяй с источниками.");
     panel.replaceChildren(node("p", "summary-text", summary.summary), highlights, meta);
-    stagger($$("#summary-panel .summary-points li"));
   } catch (error) {
     const title = error.status === 503 ? "Сводка пока недоступна" : "Не получилось загрузить сводку";
     panel.replaceChildren(emptyBlock(title, error.message));
@@ -855,7 +865,7 @@ $("#summary-refresh").addEventListener("click", loadSummary);
 function renderSources() {
   const { sources } = state.dashboard;
   const connected = sources.filter((source) => source.status === "connected").length;
-  $("#sources-lead").textContent = "Полностью обновлены " + connected + " из " + sources.length + " источников. В каждой строке видно время последнего успешного обновления.";
+  $("#sources-lead").textContent = "Полностью обновлены " + connected + " из " + sources.length + " " + plural(sources.length, "источника", "источников", "источников") + ".";
   $("#source-grid").replaceChildren(...sources.map((source) => {
     const card = node("li", "source-card");
     const main = node("div", "source-main");
@@ -867,8 +877,8 @@ function renderSources() {
     dot.setAttribute("aria-hidden", "true");
     status.append(dot, document.createTextNode(sourceStatusLabel(source.status)));
     side.append(status, node("span", "source-meta", source.last_synced_at
-      ? "Последнее успешное обновление: " + dayMonth(dateKey(source.last_synced_at)) + ", " + clock(source.last_synced_at)
-      : "Полного успешного обновления пока не было"));
+      ? "Последнее успешное обновление " + moment(source.last_synced_at)
+      : "Успешных обновлений пока не было"));
     card.append(main, side);
     if (source.error_message) card.append(node("p", "source-error", source.error_message));
     return card;
@@ -1052,7 +1062,7 @@ async function loadDashboard() {
     if (state.view === null) showView({ focus: false });
     else applyView(state.view);
     const { mode, generated_at: generatedAt } = state.dashboard.meta;
-    const suffix = mode === "live" ? "" : mode === "demo" ? " · учебные примеры" : " · источники не подключены";
+    const suffix = mode === "live" ? "" : mode === "demo" ? ". На экране учебные примеры" : ". Источники не подключены";
     setSync(mode === "live" ? "ok" : "demo", "Связь Вааааась");
     $("#sync-state").title = "Ответ сервера в " + clock(generatedAt) + suffix;
   } catch (error) {
