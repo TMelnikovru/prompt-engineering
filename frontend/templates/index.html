@@ -52,23 +52,18 @@
           <span class="nav-caption">Учёба</span>
           <a class="nav-link" href="#today" data-nav="today"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#today"></use></svg>Сегодня</a>
           <a class="nav-link" href="#tasks" data-nav="tasks"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания<span class="nav-count" id="nav-task-count"></span></a>
-          <a class="nav-link" href="#sources" data-nav="sources"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники<span class="nav-alert" id="nav-source-alert" hidden></span></a>
+          <a class="nav-link" href="#grades" data-nav="grades"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#grades"></use></svg>Оценки</a>
           <a class="nav-link" href="#settings" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Настройки</a>
         </nav>
-        <details class="nav-group nav-more" id="nav-more">
-          <summary class="nav-link nav-soon"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Скоро в агенте<span class="nav-count">5</span><svg class="icon nav-more-chevron" aria-hidden="true"><use href="/static/icons.svg#chevron"></use></svg></summary>
-          <a class="nav-link nav-soon" href="#calendar" data-nav="calendar"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#calendar"></use></svg>Календарь</a>
-          <a class="nav-link nav-soon" href="#events" data-nav="events"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#events"></use></svg>Мероприятия</a>
-          <a class="nav-link nav-soon" href="#clubs" data-nav="clubs"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#clubs"></use></svg>Клубы и кружки</a>
-          <a class="nav-link nav-soon" href="#minors" data-nav="minors"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#minors"></use></svg>Майноры</a>
-          <a class="nav-link nav-soon" href="#tutor" data-nav="tutor"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tutor"></use></svg>ИИ-репетитор</a>
-        </details>
       </div>
 
-      <a class="account-link" href="#account" data-nav="account">
-        <span class="avatar" aria-hidden="true"><svg class="icon"><use href="/static/icons.svg#account"></use></svg></span>
-        <span class="account-text"><strong>Аккаунт</strong><span>вход и данные</span></span>
-      </a>
+      <div class="sidebar-bottom">
+        <a class="nav-link nav-quiet" href="#sources" data-nav="sources"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#sources"></use></svg>Источники<span class="nav-alert" id="nav-source-alert" hidden></span></a>
+        <a class="account-link" href="#account" data-nav="account">
+          <span class="avatar" id="account-avatar" aria-hidden="true"><svg class="icon"><use href="/static/icons.svg#account"></use></svg></span>
+          <span class="account-text"><strong id="account-name">Аккаунт</strong><span id="account-group">вход и данные</span></span>
+        </a>
+      </div>
       <div class="sidebar-resizer" id="sidebar-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Ширина меню" aria-controls="sidebar" title="Потяни, чтобы изменить ширину. Двойной клик вернёт исходную."></div>
     </aside>
 
@@ -174,7 +169,7 @@
           </div>
           <div class="toolbar">
             <div class="segmented" role="group" aria-label="Фильтр по сроку">
-              <button type="button" data-filter="all" aria-pressed="true">Все</button>
+              <button type="button" data-filter="all" aria-pressed="true">Все задания</button>
               <button type="button" data-filter="today" aria-pressed="false">Сегодня</button>
               <button type="button" data-filter="week" aria-pressed="false">Неделя</button>
               <button type="button" data-filter="no-deadline" aria-pressed="false">Без срока</button>
@@ -265,14 +260,20 @@
           </form>
         </section>
 
-        <section class="view" id="view-soon" data-view="soon" tabindex="-1" aria-labelledby="soon-title" hidden>
+        <section class="view" id="view-grades" data-view="grades" tabindex="-1" aria-labelledby="grades-title" hidden>
+          <div class="view-heading">
+            <h1 class="view-title" id="grades-title">Оценки</h1>
+          </div>
           <div class="soon">
             <div class="soon-copy">
-              <span class="badge-soon" id="soon-badge">После MVP</span>
-              <h1 class="view-title" id="soon-title"></h1>
-              <p class="view-lead" id="soon-lead"></p>
-              <ul class="soon-points" id="soon-points"></ul>
-              <a class="button button-ghost" href="#today">Вернуться к плану</a>
+              <span class="badge-soon">Скоро</span>
+              <h2 class="soon-heading">Оценки появятся, когда агент подключит SmartLMS и ЕЛК</h2>
+              <ul class="soon-points">
+                <li>Накопленная оценка по каждому курсу</li>
+                <li>Элементы контроля с весами из формулы курса</li>
+                <li>Прогноз итоговой оценки: сколько нужно набрать на экзамене</li>
+              </ul>
+              <a class="button button-ghost" href="#sources">Проверить источники</a>
             </div>
             <svg class="soon-pattern" viewBox="0 0 280 280" aria-hidden="true">
               <polygon style="--i: 0" points="20,280 110,40 150,40 60,280" fill="#163a8a"/>
@@ -283,13 +284,45 @@
             </svg>
           </div>
         </section>
-      </div>
 
-      <footer class="page-footer">
-        <span id="updated-at"></span>
-      </footer>
+        <section class="view" id="view-account" data-view="account" tabindex="-1" aria-labelledby="account-title" hidden>
+          <div class="view-heading">
+            <h1 class="view-title" id="account-title">Аккаунт</h1>
+          </div>
+          <div class="panel account-panel">
+            <dl class="account-facts">
+              <div><dt>ФИО</dt><dd id="account-view-name"></dd></div>
+              <div><dt>Группа</dt><dd id="account-view-group"></dd></div>
+            </dl>
+            <p class="settings-hint">Эти данные хранит только этот браузер. Сервер их пока не получает.</p>
+            <button class="button button-ghost" id="logout-button" type="button">Выйти</button>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
+
+  <dialog class="signup" id="signup" aria-labelledby="signup-title">
+    <form class="signup-form" id="signup-form" method="dialog" novalidate>
+      <svg class="signup-pattern" viewBox="0 0 220 120" aria-hidden="true">
+        <polygon points="20,120 66,0 96,0 50,120" fill="#1d4aa8"/>
+        <polygon points="70,120 116,0 132,0 86,120" fill="#0050cf"/>
+        <polygon points="104,120 150,0 186,0 140,120" fill="#ece8f8"/>
+        <polygon points="160,120 206,0 220,0 220,10 178,120" fill="#9985c5"/>
+      </svg>
+      <span class="eyebrow">Вааась, давай знакомиться</span>
+      <h2 class="signup-title" id="signup-title">Вход в учебного агента</h2>
+      <label class="field">ФИО
+        <input class="input" name="name" id="signup-name" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" required minlength="5">
+      </label>
+      <label class="field">Номер группы
+        <input class="input" name="group" id="signup-group" type="text" placeholder="БПМИ251" required autocapitalize="characters" spellcheck="false">
+      </label>
+      <p class="signup-error" id="signup-error" role="alert" hidden></p>
+      <button class="button button-primary signup-submit" type="submit">Войти</button>
+      <p class="settings-hint">Данные хранит только этот браузер. Сервер их пока не получает.</p>
+    </form>
+  </dialog>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <noscript><p class="mode-notice">Включи JavaScript, чтобы увидеть задания.</p></noscript>

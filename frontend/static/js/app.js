@@ -4,40 +4,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const STORE = "hse-agent:";
-const MAIN_VIEWS = ["today", "tasks", "sources", "settings"];
-const SOON = {
-  calendar: {
-    title: "Календарь",
-    lead: "Расписание пар и нагрузка по дням в виде недели. Данные РУЗ агент читает уже в MVP.",
-    points: ["Пары, дедлайны и свободные окна на одной шкале", "Тяжёлые недели видно заранее"],
-  },
-  events: {
-    title: "Мероприятия",
-    lead: "Студенческие события, на которые хватает времени между дедлайнами.",
-    points: ["События факультета и университета", "Подсказка, когда на событие есть время"],
-  },
-  clubs: {
-    title: "Клубы и кружки",
-    lead: "Поиск студенческих сообществ по интересам.",
-    points: ["Клубы, кружки и проектные команды", "Встречи в календаре рядом с учёбой"],
-  },
-  minors: {
-    title: "Майноры",
-    lead: "Майноры и образовательная траектория: требования программ и твои интересы.",
-    points: ["Проверяемые требования программ", "Сравнение майноров по нагрузке и темам"],
-  },
-  tutor: {
-    title: "ИИ-репетитор",
-    lead: "Объяснения и разбор учебных материалов. Команда возьмётся за него после основного сценария: задания → сроки → план.",
-    points: ["Разбор задач по материалам курса", "Ссылка на источник у каждого объяснения"],
-  },
-  account: {
-    title: "Аккаунт",
-    lead: "Вход, подключённые аккаунты и твои данные.",
-    points: ["Вход и первое подключение источников", "Выбор курсов и Telegram-чатов"],
-    badge: "Скоро",
-  },
-};
+const MAIN_VIEWS = ["today", "tasks", "grades", "settings", "sources", "account"];
 const statusLabels = {
   not_connected: "Не подключён", connected: "Подключён", syncing: "Обновляется",
   error: "Ошибка подключения", stale: "Данные устарели",
@@ -740,31 +707,20 @@ function moveIndicator() {
   indicator.style.transform = `translateY(${rect.top - wrap.top}px)`;
 }
 
-function renderSoon(name) {
-  const config = SOON[name];
-  $("#soon-badge").textContent = config.badge || "После MVP";
-  $("#soon-title").textContent = config.title;
-  $("#soon-lead").textContent = config.lead;
-  $("#soon-points").replaceChildren(...config.points.map((point) => node("li", "", point)));
-  stagger($$("#view-soon .soon-pattern polygon"));
-}
-
 function applyView(name) {
-  const section = SOON[name] ? "soon" : name;
-  if (SOON[name]) renderSoon(name);
-  for (const view of $$("[data-view]")) view.hidden = view.dataset.view !== section || !state.dashboard;
+  for (const view of $$("[data-view]")) view.hidden = view.dataset.view !== name || !state.dashboard;
   $$("[data-nav]").forEach((link) => {
     if (link.dataset.nav === name) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
-  const current = $(`[data-view="${section}"]`);
+  const current = $(`[data-view="${name}"]`);
   if (state.dashboard) stagger([...current.children]);
   moveIndicator();
 }
 
 function showView({ focus = true } = {}) {
   const requested = location.hash.slice(1);
-  const name = MAIN_VIEWS.includes(requested) || SOON[requested] ? requested : "today";
+  const name = MAIN_VIEWS.includes(requested) ? requested : "today";
   if (name === state.view) return;
   const first = state.view === null;
   state.view = name;
@@ -774,7 +730,7 @@ function showView({ focus = true } = {}) {
     applyView(name);
   }
   if (focus && !first) {
-    $(`[data-view="${SOON[name] ? "soon" : name}"]`)?.focus({ preventScroll: true });
+    $(`[data-view="${name}"]`)?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: animate() ? "smooth" : "auto" });
   }
 }
@@ -789,7 +745,6 @@ function renderMeta() {
   $("#mode-notice-text").textContent = meta.notice;
   $("#mode-notice").hidden = !meta.notice;
   $("#nav-task-count").textContent = String(tasks.filter((task) => !isDone(task)).length);
-  $("#updated-at").textContent = "Ответ сервера в " + clock(meta.generated_at) + " · " + meta.timezone;
 }
 
 function renderAll() {
@@ -809,13 +764,62 @@ function setSync(stateName, text) {
   $("#sync-text").textContent = text;
 }
 
+/* ---------- Вход: ФИО и группа, только в этом браузере ---------- */
+function renderProfile() {
+  const profile = load("profile", null);
+  $("#account-name").textContent = profile ? profile.name.split(" ").slice(0, 2).join(" ") : "Аккаунт";
+  $("#account-group").textContent = profile ? "группа " + profile.group : "вход и данные";
+  $("#account-view-name").textContent = profile?.name || "—";
+  $("#account-view-group").textContent = profile?.group || "—";
+  const avatar = $("#account-avatar");
+  if (profile) avatar.textContent = profile.name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  else avatar.replaceChildren(icon("account"));
+}
+
+function openSignup() {
+  if (load("profile", null) || $("#signup").open) return;
+  $("#signup-error").hidden = true;
+  $("#signup").showModal();
+  setTimeout(() => $("#signup-name").focus(), animate() ? 350 : 0);
+}
+
+$("#signup").addEventListener("cancel", (event) => event.preventDefault());
+$("#signup-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = $("#signup-name").value.trim().replace(/\s+/g, " ");
+  const group = $("#signup-group").value.replace(/\s+/g, "").toUpperCase();
+  const error = $("#signup-error");
+  if (name.split(" ").length < 2) {
+    error.textContent = "Напиши фамилию и имя, можно с отчеством.";
+  } else if (!/^[A-ZА-ЯЁ]{2,8}-?\d{2,4}$/.test(group)) {
+    error.textContent = "Номер группы выглядит как БПМИ251: буквы и цифры.";
+  } else {
+    error.hidden = true;
+    save("profile", { name, group });
+    renderProfile();
+    const dialog = $("#signup");
+    dialog.classList.add("is-closing");
+    setTimeout(() => { dialog.close(); dialog.classList.remove("is-closing"); }, animate() ? 280 : 0);
+    toast("Привет, " + name.split(" ")[1] + "!", "Группа " + group + ". Связь Вааааась.");
+    return;
+  }
+  error.hidden = false;
+});
+$("#logout-button").addEventListener("click", () => {
+  try { localStorage.removeItem(STORE + "profile"); } catch { /* приватный режим */ }
+  $("#signup-form").reset();
+  renderProfile();
+  openSignup();
+});
+renderProfile();
+
 function hideSplash() {
   const splash = $("#splash");
   if (splash.classList.contains("is-done")) return;
   const wait = animate() ? Math.max(0, 1300 - (performance.now() - splashStarted)) : 0;
   setTimeout(() => {
     splash.classList.add("is-done");
-    setTimeout(() => { splash.hidden = true; }, animate() ? 900 : 0);
+    setTimeout(() => { splash.hidden = true; openSignup(); }, animate() ? 900 : 0);
   }, wait);
 }
 
