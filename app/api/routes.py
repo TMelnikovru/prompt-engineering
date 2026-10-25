@@ -1,8 +1,11 @@
+import asyncio
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import __version__
-from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario
+from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness
 from app.services.dashboard import get_dashboard
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
@@ -58,3 +61,45 @@ def health(request: Request) -> dict[str, str]:
         "version": __version__,
         "mode": "demo" if request.app.state.settings.demo_mode else "unconfigured",
     }
+
+
+@router.get(
+    "/ready",
+    response_model=Readiness,
+    summary="Готовность PostgreSQL",
+    description=(
+        "Выполняет SELECT 1 с ограничением времени. Проверяет доступность БД, "
+        "но не версию миграций и не подключение университетских источников. "
+        "Отсутствие настройки и недоступность БД возвращают 503."
+    ),
+    responses={503: {"model": ApiError, "description": "База не настроена или недоступна"}},
+)
+async def ready(request: Request) -> Readiness | JSONResponse:
+    database = request.app.state.database
+    if database is None:
+        return JSONResponse(
+            status_code=503,
+            content=ApiError(
+                error=ApiErrorDetail(
+                    code="database_not_configured",
+                    message="База данных не настроена.",
+                )
+            ).model_dump(),
+        )
+    try:
+        await asyncio.wait_for(
+            database.ping(),
+            timeout=request.app.state.settings.db_connect_timeout + 1,
+        )
+    except (SQLAlchemyError, TimeoutError):
+        return JSONResponse(
+            status_code=503,
+            content=ApiError(
+                error=ApiErrorDetail(
+                    code="database_unavailable",
+                    message="База данных временно недоступна.",
+                    retryable=True,
+                )
+            ).model_dump(),
+        )
+    return Readiness()

@@ -93,6 +93,38 @@
           }
         }
       }
+    },
+    "/api/v1/ready": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Готовность PostgreSQL",
+        "description": "Выполняет SELECT 1 с ограничением времени. Проверяет доступность БД, но не версию миграций и не подключение университетских источников. Отсутствие настройки и недоступность БД возвращают 503.",
+        "operationId": "ready_api_v1_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "База не настроена или недоступна",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -334,6 +366,24 @@
           "error"
         ],
         "title": "PreviewScenario"
+      },
+      "Readiness": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready",
+            "title": "Status",
+            "default": "ready"
+          },
+          "database": {
+            "type": "string",
+            "const": "connected",
+            "title": "Database",
+            "default": "connected"
+          }
+        },
+        "type": "object",
+        "title": "Readiness"
       },
       "Source": {
         "properties": {

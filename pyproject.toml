@@ -4,10 +4,12 @@ version = "0.1.0"
 description = "Учебный агент ВШЭ: источники, дедлайны и план дня."
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.14,<2",
     "fastapi>=0.115,<1",
     "jinja2>=3.1,<4",
     "psycopg[binary]>=3.2,<4",
     "pydantic-settings>=2.6,<3",
+    "sqlalchemy[asyncio]>=2.0.36,<3",
     "tzdata>=2025.1",
     "uvicorn>=0.30,<1",
 ]
@@ -25,6 +27,7 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["integration: требует отдельную PostgreSQL БД через HSE_TEST_DATABASE_URL"]
 
 [tool.ruff]
 target-version = "py312"

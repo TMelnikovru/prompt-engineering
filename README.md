@@ -69,6 +69,16 @@ uv run python -m scripts.export_openapi --check
 Зависимости зафиксированы в `uv.lock`. После их изменения обновите
 pip-вариант: `uv export --frozen --no-dev --no-hashes --no-header -o requirements.txt`.
 
+### PostgreSQL
+
+Основа подключения, сессии и миграции готовы. Настройка сервера и локальной БД:
+[docs/POSTGRESQL.md](docs/POSTGRESQL.md). Предметная схема и сохранение заданий
+будут добавлены после уточнения требований.
+
+Без `HSE_DATABASE_URL` фронтенд запускается как прежде.
+`GET /api/v1/health` проверяет приложение, `GET /api/v1/ready` —
+соединение с PostgreSQL. Миграции: `uv run alembic upgrade head`.
+
 ### Сервер
 
 Рабочее развёртывание на `docker-prod`, PostgreSQL и автоматическое обновление

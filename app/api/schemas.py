@@ -88,3 +88,8 @@ class ApiErrorDetail(BaseModel):
 
 class ApiError(BaseModel):
     error: ApiErrorDetail
+
+
+class Readiness(BaseModel):
+    status: Literal["ready"] = "ready"
+    database: Literal["connected"] = "connected"
