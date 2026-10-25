@@ -1,6 +1,6 @@
-from typing import Protocol
+from typing import Any, Protocol
 
-from pydantic import AwareDatetime, BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 
 
 class SourceRecord(BaseModel):
@@ -22,3 +22,11 @@ class Connector(Protocol):
     async def fetch(self) -> list[SourceRecord]:
         """Прочитать разрешённые источники; ошибки подключения не скрывать."""
         ...
+
+
+class DocumentRecord(SourceRecord):
+    raw_content: str
+    revision_key: str
+    content_hash: str
+    links: list[dict[str, str]] = Field(default_factory=list)
+    attributes: dict[str, Any] = Field(default_factory=dict)

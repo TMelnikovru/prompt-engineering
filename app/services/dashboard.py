@@ -12,15 +12,7 @@ from app.api.schemas import (
     Task,
 )
 from app.config import Settings
-
-SOURCE_CATALOG = (
-    ("smartlms", "SmartLMS", "Задания, объявления и материалы курсов"),
-    ("mail", "Почта", "Письма преподавателей и университетские рассылки"),
-    ("ruz", "РУЗ", "Расписание занятий и экзаменов"),
-    ("elk", "ЕЛК", "Личный кабинет студента"),
-    ("telegram", "Telegram", "Выбранные учебные чаты и каналы"),
-    ("wiki", "Вики ФКН", "Страницы курсов и учебные материалы"),
-)
+from app.services.source_catalog import SOURCE_CATALOG
 
 
 def get_dashboard(settings: Settings, scenario: PreviewScenario) -> Dashboard:

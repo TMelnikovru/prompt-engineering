@@ -1,4 +1,12 @@
 /* Учебный агент ВШЭ. Цвета и шрифт — по брендбуку hse.ru/info/brandbook. */
+.dsba-connection { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.dsba-connection summary { cursor: pointer; font-weight: 600; }
+.dsba-connection p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.dsba-connection fieldset { border: 0; padding: 0; margin: 16px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.dsba-connection label { display: grid; gap: 6px; flex: 1 1 140px; font-size: 14px; }
+.dsba-connection select { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.dsba-connection ul { padding-left: 20px; font-size: 14px; line-height: 1.7; max-height: 340px; overflow: auto; }
+.deadline-change { padding: 10px; border-radius: 8px; background: var(--sky-100); font-size: 14px; }
 @font-face { font-family: "HSE Sans"; src: url("../fonts/HSESans-Thin.woff2") format("woff2"); font-weight: 100; font-display: swap; }
 @font-face { font-family: "HSE Sans"; src: url("../fonts/HSESans-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "HSE Sans"; src: url("../fonts/HSESans-SemiBold.woff2") format("woff2"); font-weight: 600; font-display: swap; }
@@ -312,10 +320,13 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sky-300); flex-shrink: 0; }
 [data-status="connected"] .status-dot { background: var(--green-600); }
 [data-status="syncing"] .status-dot { background: var(--cyan-500); animation: pulse 1s infinite; }
-[data-status="stale"] .status-dot { background: var(--amber-600); }
+[data-status="stale"] .status-dot,
+[data-status="partial"] .status-dot { background: var(--amber-600); }
 [data-status="error"] .status-dot { background: var(--red-600); }
-.source-chip[data-status="stale"] { background: var(--amber-50); }
-.source-chip[data-status="stale"] span { color: var(--amber-800); }
+.source-chip[data-status="stale"],
+.source-chip[data-status="partial"] { background: var(--amber-50); }
+.source-chip[data-status="stale"] span,
+.source-chip[data-status="partial"] span { color: var(--amber-800); }
 .source-chip[data-status="error"] { background: var(--red-50); }
 .source-chip[data-status="error"] span { color: var(--red-800); }
 
@@ -610,4 +621,3 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .theme-button { width: 44px; padding: 0; border-color: var(--line); background: var(--surface); color: var(--ink); }
 .theme-button:hover { background: var(--sky-100); }
 .theme-button .icon { width: 20px; height: 20px; stroke-width: 1.8; }
-

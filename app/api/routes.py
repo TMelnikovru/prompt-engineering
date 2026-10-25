@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Request
+import asyncio
+
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import __version__
-from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario
+from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
+from app.services.dsba import dsba_tasks
+from app.services.library import list_sources
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -13,8 +18,9 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
     response_model=Dashboard,
     summary="Задания, план дня и состояния источников",
     description=(
-        "Каркас API для фронтенда. По умолчанию возвращает явно помеченные учебные примеры. "
-        "При HSE_DEMO_MODE=false возвращает пустые данные и mode=unconfigured. "
+        "Задания и состояния источников. dsba_source_id выбирает только подключённую "
+        "учебную группу DSBA; без него её задания не показываются. "
+        "По умолчанию разработки возвращает явно помеченные учебные примеры. "
         "scenario=empty и scenario=error доступны только в демо-режиме."
     ),
     responses={
@@ -22,9 +28,10 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
         503: {"model": ApiError, "description": "Сценарий ошибки для разработки интерфейса"},
     },
 )
-def dashboard(
+async def dashboard(
     request: Request,
     scenario: PreviewScenario = PreviewScenario.DEFAULT,
+    dsba_source_id: str | None = Query(default=None, pattern=r"^dsba:[0-9a-f]{32}$"),
 ) -> Dashboard | JSONResponse:
     settings = request.app.state.settings
     if not settings.demo_mode and scenario != PreviewScenario.DEFAULT:
@@ -48,7 +55,34 @@ def dashboard(
                 )
             ).model_dump(),
         )
-    return get_dashboard(settings, scenario)
+    result = get_dashboard(settings, scenario)
+    database = request.app.state.database
+    if database is not None and not settings.demo_mode:
+        try:
+            stored_sources = await list_sources(database)
+            visible = [
+                s for s in stored_sources if s["kind"] != "dsba" or s["id"] == dsba_source_id
+            ]
+            for stored in visible:
+                for index, source in enumerate(result.sources):
+                    if source.id == stored["id"] or (
+                        source.id == "dsba" and stored["id"] == dsba_source_id
+                    ):
+                        result.sources[index] = Source.model_validate(stored)
+            if dsba_source_id:
+                result.tasks = await dsba_tasks(database, dsba_source_id)
+                result.plan.note = "Задания получены из DSBA. План дня ещё не рассчитан."
+            total = sum(s["document_count"] for s in visible)
+            if total or result.tasks or any(s["status"] == "connected" for s in visible):
+                result.meta.mode = "live"
+                result.meta.notice = (
+                    f"В библиотеке {total} записей из подключённых источников. "
+                    "Задания DSBA относятся к выбранной группе. Приоритеты — рекомендации. "
+                    "Страницы вики ещё не назначены вашему курсу."
+                )
+        except SQLAlchemyError:
+            result.meta.notice = "Хранилище источников временно недоступно."
+    return result
 
 
 @router.get("/health", summary="Проверка HTTP-приложения")
@@ -58,3 +92,45 @@ def health(request: Request) -> dict[str, str]:
         "version": __version__,
         "mode": "demo" if request.app.state.settings.demo_mode else "unconfigured",
     }
+
+
+@router.get(
+    "/ready",
+    response_model=Readiness,
+    summary="Готовность PostgreSQL",
+    description=(
+        "Выполняет SELECT 1 с ограничением времени. Проверяет доступность БД, "
+        "но не версию миграций и не подключение университетских источников. "
+        "Отсутствие настройки и недоступность БД возвращают 503."
+    ),
+    responses={503: {"model": ApiError, "description": "База не настроена или недоступна"}},
+)
+async def ready(request: Request) -> Readiness | JSONResponse:
+    database = request.app.state.database
+    if database is None:
+        return JSONResponse(
+            status_code=503,
+            content=ApiError(
+                error=ApiErrorDetail(
+                    code="database_not_configured",
+                    message="База данных не настроена.",
+                )
+            ).model_dump(),
+        )
+    try:
+        await asyncio.wait_for(
+            database.ping(),
+            timeout=request.app.state.settings.db_connect_timeout + 1,
+        )
+    except (SQLAlchemyError, TimeoutError):
+        return JSONResponse(
+            status_code=503,
+            content=ApiError(
+                error=ApiErrorDetail(
+                    code="database_unavailable",
+                    message="База данных временно недоступна.",
+                    retryable=True,
+                )
+            ).model_dump(),
+        )
+    return Readiness()

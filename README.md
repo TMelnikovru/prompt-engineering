@@ -69,10 +69,25 @@ uv run python -m scripts.export_openapi --check
 Зависимости зафиксированы в `uv.lock`. После их изменения обновите
 pip-вариант: `uv export --frozen --no-dev --no-hashes --no-header -o requirements.txt`.
 
+### PostgreSQL
+
+Первая живая интеграция — [вики ФКН](docs/WIKI.md): получение страниц,
+хранение версий, двухэтапная обработка OpenAI, кеш и API материалов.
+
+Основа подключения, сессии и миграции готовы. Настройка сервера и локальной БД:
+[docs/POSTGRESQL.md](docs/POSTGRESQL.md). Предметная схема и сохранение заданий
+будут добавлены после уточнения требований.
+
+Без `HSE_DATABASE_URL` фронтенд запускается как прежде.
+`GET /api/v1/health` проверяет приложение, `GET /api/v1/ready` —
+соединение с PostgreSQL. Миграции: `uv run alembic upgrade head`.
+
 ### Сервер
 
 Рабочее развёртывание на `docker-prod`, PostgreSQL и автоматическое обновление
 из `main`: [инструкция](docs/DEPLOYMENT.md). Прокси настраивается отдельно.
+
+DSBA Online: [подключение через фронтенд и контракт API](docs/DSBA.md).
 
 ~~~sh
 docker build -t hse-study-agent .

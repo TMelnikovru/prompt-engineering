@@ -1,0 +1,10 @@
+version: 1
+name: dsba-public
+slug: dsba-public
+protocol: http
+port: 4513
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

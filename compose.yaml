@@ -8,7 +8,7 @@ services:
     init: true
     ports:
       - "${HSE_BIND_HOST:-127.0.0.1}:${HSE_PORT:-8000}:8000"
-    environment:
+    environment: &app-environment
       HSE_DEMO_MODE: ${HSE_DEMO_MODE:-false}
       HSE_TIMEZONE: ${HSE_TIMEZONE:-Europe/Moscow}
       HSE_DATABASE_URL: ${HSE_DATABASE_URL:-}
@@ -20,6 +20,22 @@ services:
       PGCONNECT_TIMEOUT: "5"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      HSE_EXTRACTION_MODEL: ${HSE_EXTRACTION_MODEL:-}
+      HSE_SUMMARY_MODEL: ${HSE_SUMMARY_MODEL:-}
+      HSE_WIKI_API_URL: ${HSE_WIKI_API_URL:-}
+      HSE_WIKI_SEEDS: ${HSE_WIKI_SEEDS:-}
+      HSE_WIKI_MAX_PAGES: ${HSE_WIKI_MAX_PAGES:-}
+      HSE_WIKI_MAX_DEPTH: ${HSE_WIKI_MAX_DEPTH:-}
+      HSE_WIKI_INTERVAL_SECONDS: ${HSE_WIKI_INTERVAL_SECONDS:-}
+      HSE_WIKI_RETRY_SECONDS: ${HSE_WIKI_RETRY_SECONDS:-}
+      HSE_WIKI_REQUEST_TIMEOUT: ${HSE_WIKI_REQUEST_TIMEOUT:-}
+      HSE_WIKI_REQUEST_DELAY: ${HSE_WIKI_REQUEST_DELAY:-}
+      HSE_INGESTION_TOKEN: ${HSE_INGESTION_TOKEN:-}
+      HSE_DSBA_BASE_URL: ${HSE_DSBA_BASE_URL:-}
+      HSE_DSBA_REQUEST_TIMEOUT: ${HSE_DSBA_REQUEST_TIMEOUT:-}
+      HSE_DSBA_MAX_RECORDS: ${HSE_DSBA_MAX_RECORDS:-}
+      HSE_DSBA_MAX_PROFILES: ${HSE_DSBA_MAX_PROFILES:-}
+      HSE_DSBA_INTERVAL_SECONDS: ${HSE_DSBA_INTERVAL_SECONDS:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,11 +49,33 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-    logging:
+    logging: &app-logging
       driver: json-file
       options:
         max-size: 10m
         max-file: "3"
+
+  wiki-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.ingest, worker, --analyze, --summarize, --limit, "25", --summary-limit, "25"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  dsba-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.dsba, worker]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
 
   postgres:
     image: postgres:17-alpine

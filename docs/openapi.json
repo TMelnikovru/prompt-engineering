@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HSE Study Agent",
-    "description": "Контракт для разработки сайта учебного агента. Живые интеграции, LLM и фоновые напоминания пока не реализованы.",
+    "description": "Контракт для разработки сайта учебного агента. Вики ФКН, DSBA Online по выбранной группе, библиотека PostgreSQL и сохранённые результаты ИИ-обработки. Персональные задания, план и напоминания ещё не формируются из вики.",
     "version": "0.1.0"
   },
   "paths": {
@@ -12,7 +12,7 @@
           "dashboard"
         ],
         "summary": "Задания, план дня и состояния источников",
-        "description": "Каркас API для фронтенда. По умолчанию возвращает явно помеченные учебные примеры. При HSE_DEMO_MODE=false возвращает пустые данные и mode=unconfigured. scenario=empty и scenario=error доступны только в демо-режиме.",
+        "description": "Задания и состояния источников. dsba_source_id выбирает только подключённую учебную группу DSBA; без него её задания не показываются. По умолчанию разработки возвращает явно помеченные учебные примеры. scenario=empty и scenario=error доступны только в демо-режиме.",
         "operationId": "dashboard_api_v1_dashboard_get",
         "parameters": [
           {
@@ -22,6 +22,23 @@
             "schema": {
               "$ref": "#/components/schemas/PreviewScenario",
               "default": "default"
+            }
+          },
+          {
+            "name": "dsba_source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^dsba:[0-9a-f]{32}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dsba Source Id"
             }
           }
         ],
@@ -87,6 +104,463 @@
                   },
                   "type": "object",
                   "title": "Response Health Api V1 Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ready": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Готовность PostgreSQL",
+        "description": "Выполняет SELECT 1 с ограничением времени. Проверяет доступность БД, но не версию миграций и не подключение университетских источников. Отсутствие настройки и недоступность БД возвращают 503.",
+        "operationId": "ready_api_v1_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "База не настроена или недоступна",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/dsba/catalog": {
+      "get": {
+        "tags": [
+          "DSBA Online"
+        ],
+        "summary": "Catalog",
+        "description": "Текущий публичный каталог программ, курсов, групп и предметов dsba.online.",
+        "operationId": "catalog_api_v1_integrations_dsba_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DsbaCatalog"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/dsba/sync": {
+      "post": {
+        "tags": [
+          "DSBA Online"
+        ],
+        "summary": "Synchronize",
+        "description": "Подключает выбранные во фронтенде программу, курс, группу и подгруппу. Читает только публичные предметы, материалы и дедлайны. Возвращает source_id, который нужно передавать в dashboard как dsba_source_id и documents как source_id. Повторный запрос в течение 60 секунд использует сохранённый результат. Выбранные наборы обновляются серверным dsba-worker без открытой вкладки. Это выбор публичной учебной группы, а не вход в личный аккаунт DSBA. Приватный Classroom и административные действия не вызываются. OpenAI не вызывается.",
+        "operationId": "synchronize_api_v1_integrations_dsba_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DsbaSelection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DsbaSyncResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DsbaSyncResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ],
+                  "title": "Response 502 Synchronize Api V1 Integrations Dsba Sync Post"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Sources",
+        "operationId": "sources_api_v1_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceView"
+                  },
+                  "type": "array",
+                  "title": "Response Sources Api V1 Sources Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PostgreSQL не настроен или недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Documents",
+        "operationId": "documents_api_v1_documents_get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "wiki",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentList"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PostgreSQL не настроен или недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{document_id}": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Document",
+        "operationId": "document_api_v1_documents__document_id__get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PostgreSQL не настроен или недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/wiki/sync": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Synchronize",
+        "description": "Читает ограниченный настройками набор страниц. Нужен X-Ingestion-Token, совпадающий с HSE_INGESTION_TOKEN на сервере. Без настройки токена HTTP-запуск отключён; CLI и worker доступны оператору сервера. Не вызывает OpenAI. Полный обход вики не подразумевается: scope задаёт границы.",
+        "operationId": "synchronize_api_v1_integrations_wiki_sync_post",
+        "parameters": [
+          {
+            "name": "x-ingestion-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Ingestion-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PostgreSQL не настроен или недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/summary": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Latest Summary",
+        "operationId": "latest_summary_api_v1_knowledge_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "503": {
+            "description": "PostgreSQL не настроен или недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -237,6 +711,395 @@
         ],
         "title": "DayPlan"
       },
+      "DocumentDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Version Id"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "content_text": {
+            "type": "string",
+            "title": "Content Text"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Attributes"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          },
+          "version_count": {
+            "type": "integer",
+            "title": "Version Count"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "title",
+          "url",
+          "version_id",
+          "content_hash",
+          "content_text",
+          "attributes",
+          "fetched_at",
+          "last_seen_at",
+          "version_count"
+        ],
+        "title": "DocumentDetail"
+      },
+      "DocumentList": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentPreview"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ],
+        "title": "DocumentList"
+      },
+      "DocumentPreview": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Version Id"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "external_id",
+          "title",
+          "url",
+          "version_id",
+          "content_hash",
+          "excerpt",
+          "last_seen_at"
+        ],
+        "title": "DocumentPreview"
+      },
+      "DsbaCatalog": {
+        "properties": {
+          "academic_year": {
+            "type": "string",
+            "title": "Academic Year"
+          },
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/DsbaProgram"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Programs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "academic_year",
+          "programs"
+        ],
+        "title": "DsbaCatalog"
+      },
+      "DsbaProgram": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/DsbaYear"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Years"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "title",
+          "years"
+        ],
+        "title": "DsbaProgram"
+      },
+      "DsbaSelection": {
+        "properties": {
+          "program": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9-]+$",
+            "title": "Program"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Year"
+          },
+          "group": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Group",
+            "default": ""
+          },
+          "sub": {
+            "type": "string",
+            "maxLength": 8,
+            "title": "Sub",
+            "default": ""
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Subjects"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "program",
+          "year"
+        ],
+        "title": "DsbaSelection"
+      },
+      "DsbaSyncResult": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scope"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "created",
+          "updated",
+          "unchanged",
+          "errors",
+          "has_more",
+          "scope",
+          "source_id"
+        ],
+        "title": "DsbaSyncResult"
+      },
+      "DsbaYear": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Year"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "subgroups": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subgroups"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subjects"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "label",
+          "groups",
+          "subgroups",
+          "subjects",
+          "names"
+        ],
+        "title": "DsbaYear"
+      },
       "Evidence": {
         "properties": {
           "source_id": {
@@ -273,6 +1136,29 @@
               }
             ],
             "title": "Published At"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
           }
         },
         "type": "object",
@@ -335,6 +1221,24 @@
         ],
         "title": "PreviewScenario"
       },
+      "Readiness": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready",
+            "title": "Status",
+            "default": "ready"
+          },
+          "database": {
+            "type": "string",
+            "const": "connected",
+            "title": "Database",
+            "default": "connected"
+          }
+        },
+        "type": "object",
+        "title": "Readiness"
+      },
       "Source": {
         "properties": {
           "id": {
@@ -355,6 +1259,7 @@
               "not_connected",
               "connected",
               "syncing",
+              "partial",
               "error",
               "stale"
             ],
@@ -381,7 +1286,8 @@
                 "type": "null"
               }
             ],
-            "title": "Error Message"
+            "title": "Error Message",
+            "description": "Сообщение для интерфейса; технический код здесь не показывается."
           }
         },
         "type": "object",
@@ -392,6 +1298,170 @@
           "status"
         ],
         "title": "Source"
+      },
+      "SourceView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_connected",
+              "connected",
+              "syncing",
+              "partial",
+              "error",
+              "stale"
+            ],
+            "title": "Status"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Сообщение для интерфейса; технический код здесь не показывается."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "document_count": {
+            "type": "integer",
+            "title": "Document Count"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error",
+            "description": "Технический код для диагностики. Пользователю показывайте error_message."
+          },
+          "scope": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scope"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "kind",
+          "base_url",
+          "document_count",
+          "last_error",
+          "scope",
+          "last_run"
+        ],
+        "title": "SourceView",
+        "description": "The dashboard's source contract, plus operator and library metadata."
+      },
+      "SyncResult": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scope"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "created",
+          "updated",
+          "unchanged",
+          "errors",
+          "has_more",
+          "scope"
+        ],
+        "title": "SyncResult"
       },
       "Task": {
         "properties": {
@@ -476,6 +1546,22 @@
             },
             "type": "array",
             "title": "Evidence"
+          },
+          "due_requires_confirmation": {
+            "type": "boolean",
+            "title": "Due Requires Confirmation",
+            "default": false
+          },
+          "deadline_changed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline Changed"
           }
         },
         "type": "object",

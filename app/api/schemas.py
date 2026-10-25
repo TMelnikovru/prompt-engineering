@@ -11,13 +11,18 @@ class PreviewScenario(StrEnum):
     ERROR = "error"
 
 
+SourceStatus = Literal["not_connected", "connected", "syncing", "partial", "error", "stale"]
+
+
 class Source(BaseModel):
     id: str
     name: str
     description: str
-    status: Literal["not_connected", "connected", "syncing", "error", "stale"]
+    status: SourceStatus
     last_synced_at: AwareDatetime | None = None
-    error_message: str | None = None
+    error_message: str | None = Field(
+        default=None, description="Сообщение для интерфейса; технический код здесь не показывается."
+    )
 
 
 class Evidence(BaseModel):
@@ -26,6 +31,8 @@ class Evidence(BaseModel):
     quote: str
     url: str | None = None
     published_at: AwareDatetime | None = None
+    fetched_at: AwareDatetime | None = None
+    external_id: str | None = None
 
 
 class Task(BaseModel):
@@ -43,6 +50,8 @@ class Task(BaseModel):
     estimated_minutes: int | None = Field(default=None, ge=1)
     materials: list[str] = Field(default_factory=list)
     evidence: list[Evidence]
+    due_requires_confirmation: bool = False
+    deadline_changed: str | None = None
 
     @model_validator(mode="after")
     def one_deadline_representation(self) -> "Task":
@@ -88,3 +97,8 @@ class ApiErrorDetail(BaseModel):
 
 class ApiError(BaseModel):
     error: ApiErrorDetail
+
+
+class Readiness(BaseModel):
+    status: Literal["ready"] = "ready"
+    database: Literal["connected"] = "connected"
