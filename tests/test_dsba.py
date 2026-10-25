@@ -47,6 +47,9 @@ def test_real_http_collects_selection_and_keeps_canonical_identifiers(upstreams)
             assert len(result.records) == 4
             assert {r.source_id for r in result.records} == {selection.source_id}
             assert result.records[0].external_id == "deadline:31"
+            assert "Срок в DSBA: 2026-10-28T20:59:00.000Z" in result.records[0].text
+            assert "all_day" not in result.records[0].text
+            assert "all_day" in result.records[0].raw_content
             assert result.records[-1].published_at is not None
             async with httpx.AsyncClient() as client:
                 calls = (await client.get(upstreams["dsba"] + "/__stats")).json()["requests"]

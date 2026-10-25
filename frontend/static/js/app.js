@@ -535,6 +535,9 @@ function evidenceBlock(task) {
     if (entry.published_at) {
       caption.append(document.createTextNode(" · опубликовано " + dayMonth(dateKey(entry.published_at)) + ", " + clock(entry.published_at)));
     }
+    if (entry.fetched_at) {
+      caption.append(document.createTextNode(" · получено " + dayMonth(dateKey(entry.fetched_at)) + ", " + clock(entry.fetched_at)));
+    }
     figure.append(caption);
     wrap.append(figure);
   }

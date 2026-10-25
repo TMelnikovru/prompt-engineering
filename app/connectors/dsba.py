@@ -192,10 +192,25 @@ def normalize_record(
         url = base + "/#m/" + str(external_id)
     # Keep source evidence, without unrelated author/account fields.
     evidence = {key: raw.get(key) for key in fields}
-    text = f"Предмет: {course}\n" + json.dumps(
-        evidence, ensure_ascii=False, sort_keys=True, indent=2
+    lines = [title, f"Предмет: {course}"]
+    if kind == "deadline":
+        lines.append(f"Срок в DSBA: {raw.get('due_at') or 'не указан'}")
+        if facts.get("due_date"):
+            lines.append("Источник указал дату без времени.")
+        if raw.get("conflict"):
+            lines.append(
+                "Противоречащая запись: " + json.dumps(raw["conflict"], ensure_ascii=False)
+            )
+        if isinstance(raw.get("details"), str) and raw["details"]:
+            lines.append(raw["details"])
+    elif raw.get("date"):
+        lines.append(f"Дата занятия в источнике: {raw['date']}")
+    text = "\n".join(lines)
+    content = json.dumps(
+        {"record": evidence, "course": course, "normalizer": 1},
+        ensure_ascii=False,
+        sort_keys=True,
     )
-    content = json.dumps({"record": evidence, "course": course}, ensure_ascii=False, sort_keys=True)
     digest = hashlib.sha256(content.encode()).hexdigest()
     links = []
     if original := public_url(raw.get("url"), base):
