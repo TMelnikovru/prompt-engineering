@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#1d4aa8">
   <meta name="description" content="Учебный агент для студентов Вышки: задания, сроки и план дня.">
-  <title>Учебный агент · Вышка</title>
+  <title>Учебный агент Вышки</title>
   <link rel="icon" href="{{ url_for('static', path='/favicon.svg').path }}" type="image/svg+xml">
   <link rel="preload" href="{{ url_for('static', path='/fonts/HSESans-Black.woff2').path }}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{{ url_for('static', path='/fonts/HSESans-Regular.woff2').path }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css').path }}">
   <script type="module" src="{{ url_for('static', path='/js/app.js').path }}"></script>
   <noscript><style>.splash { display: none; }</style></noscript>
-  <script>try { if (localStorage.getItem("hse-agent:theme") === '"vit"') document.documentElement.dataset.theme = "vit"; } catch {}</script>
+  <script>try { const t = JSON.parse(localStorage.getItem("hse-agent:theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
   <a class="skip-link" href="#main">К содержимому</a>
@@ -26,7 +26,7 @@
       <polygon style="--i: 3" points="410,720 670,0 700,0 440,720" fill="#9985c5"/>
       <polygon style="--i: 4" points="470,720 640,250 640,720" fill="#b3a5dc"/>
     </svg>
-    <span class="splash-eyebrow">УЧЕБНЫЙ АГЕНТ ВЫШКИ</span>
+    <span class="splash-eyebrow">Учебный агент Вышки</span>
     <p class="splash-word" aria-label="Вааааась">
       <span style="--i: 0" aria-hidden="true">В</span><span style="--i: 1" aria-hidden="true">а</span><span style="--i: 2" aria-hidden="true">а</span><span style="--i: 3" aria-hidden="true">а</span><span style="--i: 4" aria-hidden="true">а</span><span style="--i: 5" aria-hidden="true">а</span><span style="--i: 6" aria-hidden="true">с</span><span style="--i: 7" aria-hidden="true">ь</span>
     </p>
@@ -49,11 +49,12 @@
       <div class="nav-wrap" id="nav-wrap">
         <span class="nav-indicator" id="nav-indicator" aria-hidden="true"></span>
         <nav class="nav-group" aria-label="Учёба">
-          <span class="nav-caption">Учёба</span>
           <a class="nav-link" href="#today" data-nav="today"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#today"></use></svg>Сегодня</a>
           <a class="nav-link" href="#tasks" data-nav="tasks"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания<span class="nav-count" id="nav-task-count"></span></a>
           <a class="nav-link" href="#materials" data-nav="materials"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#doc"></use></svg>Материалы</a>
+          <a class="nav-link" href="#summary" data-nav="summary"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#spark"></use></svg>Сводка</a>
           <a class="nav-link" href="#grades" data-nav="grades"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#grades"></use></svg>Оценки</a>
+          <a class="nav-link" href="#fkn" data-nav="fkn"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#campus"></use></svg>ФКН</a>
           <a class="nav-link" href="#settings" data-nav="settings"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Настройки</a>
         </nav>
       </div>
@@ -75,8 +76,8 @@
         </div>
         <div class="topbar-actions">
           <span class="sync-state" id="sync-state" data-state="loading" role="status"><span class="sync-dot" aria-hidden="true"></span><span id="sync-text">Ищем связь…</span></span>
-          <button class="button theme-button" id="theme-button" type="button" aria-label="Тема «Вкусно и точка»" aria-pressed="false" title="Сменить тему">
-            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#palette"></use></svg>
+          <button class="button theme-button" id="theme-button" type="button" aria-label="Включить тёмную тему" aria-pressed="false">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#moon"></use></svg>
           </button>
           <button class="button button-primary" id="refresh-button" type="button">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#refresh"></use></svg>
@@ -92,7 +93,6 @@
 
       <div class="views" id="views">
         <section class="load-error" id="load-error" hidden>
-          <span class="eyebrow">Вааась, что-то пошло не так</span>
           <h2>Не получилось загрузить данные</h2>
           <p id="load-error-text"></p>
           <button class="button button-primary" id="retry-button" type="button">Попробовать ещё раз</button>
@@ -125,7 +125,7 @@
               <ol class="plan-list" id="plan-list"></ol>
               <div class="empty-state" id="plan-empty" hidden>
                 <strong>Плана пока нет</strong>
-                <p>Агент составит расписание на день, как только источники пришлют задания.</p>
+                <p>Расписание появится, когда источники пришлют задания.</p>
               </div>
               <div class="overload" id="overload" hidden>
                 <div class="overload-head">
@@ -198,7 +198,7 @@
           <ul class="source-grid" id="source-grid"></ul>
           <div class="callout">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#info"></use></svg>
-            <p>Если один источник сломался, агент продолжает читать остальные. PDF и другие материалы агент берёт из подключённых источников.</p>
+            <p>Если один источник сломался, остальные продолжают обновляться. PDF агент берёт из подключённых источников.</p>
           </div>
         </section>
 
@@ -219,7 +219,7 @@
                 <label class="choice"><input type="radio" name="minutes" value="120"><span>2 ч</span></label>
                 <label class="choice"><input type="radio" name="minutes" value="180"><span>3 ч</span></label>
                 <label class="choice"><input type="radio" name="minutes" value="240"><span>4 ч</span></label>
-                              </div>
+              </div>
             </fieldset>
             <fieldset class="settings-card">
               <legend>Напоминания</legend>
@@ -239,10 +239,11 @@
             </fieldset>
             <fieldset class="settings-card">
               <legend>Оформление</legend>
-              <p class="settings-hint">Тема меняется сразу и запоминается в этом браузере.</p>
+              <p class="settings-hint">Тема меняется сразу. Браузер её запомнит.</p>
               <div class="choice-row">
-                <label class="choice"><input type="radio" name="theme" value="hse"><span>ВШЭ</span></label>
-                <label class="choice"><input type="radio" name="theme" value="vit"><span>Вкусно и точка</span></label>
+                <label class="choice"><input type="radio" name="theme" value="system"><span>Как в системе</span></label>
+                <label class="choice"><input type="radio" name="theme" value="light"><span>Светлая</span></label>
+                <label class="choice"><input type="radio" name="theme" value="dark"><span>Тёмная</span></label>
               </div>
             </fieldset>
             <fieldset class="settings-card">
@@ -284,6 +285,98 @@
           <div class="empty-state" id="materials-empty" hidden>
             <strong id="materials-empty-title"></strong>
             <p id="materials-empty-text"></p>
+          </div>
+        </section>
+
+        <section class="view" id="view-summary" data-view="summary" tabindex="-1" aria-labelledby="summary-title" hidden>
+          <div class="view-heading">
+            <div>
+              <h1 class="view-title" id="summary-title">Сводка</h1>
+              <p class="view-lead">Обзор выбранного примера или последняя ИИ-сводка учебных страниц в реальном режиме.</p>
+            </div>
+            <button class="button button-ghost" id="summary-refresh" type="button">Обновить сводку</button>
+          </div>
+          <div class="panel summary-panel" id="summary-panel" aria-live="polite"></div>
+        </section>
+
+        <section class="view" id="view-fkn" data-view="fkn" tabindex="-1" aria-labelledby="fkn-title" hidden>
+          <div class="view-heading">
+            <div>
+              <h1 class="view-title" id="fkn-title">ФКН</h1>
+              <p class="view-lead">Путеводитель по сервисам факультета. Данные с cs.hse.ru и hse.ru на 25 октября 2026.</p>
+            </div>
+          </div>
+          <div class="guide-next">
+            <span class="eyebrow">Ближайший срок</span>
+            <strong>Запись на весенние факультативы до 1 февраля</strong>
+            <a class="guide-link" href="https://cs.hse.ru/electives" target="_blank" rel="noopener noreferrer">Список факультативов<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+          </div>
+          <div class="guide-grid">
+            <article class="guide-card">
+              <h2 class="guide-title">Выбор курсов</h2>
+              <ul class="soon-points">
+                <li>Факультативы ФКН: запись на весенние до 1 февраля, на осенние с 14 по 20 сентября</li>
+                <li>Ты записан, только когда курс появился в LMS и в индивидуальном плане</li>
+                <li>Оценка за факультатив идёт в рейтинг, неуд даёт академический долг</li>
+                <li>Майноры ФКН: биоинформатика, интеллектуальный анализ данных, нейросетевые технологии, UX-дизайн</li>
+              </ul>
+              <div class="guide-links">
+                <a class="guide-link" href="https://cs.hse.ru/electives" target="_blank" rel="noopener noreferrer">Факультативы<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://electives.hse.ru/" target="_blank" rel="noopener noreferrer">Майноры и курсы по выбору<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+              </div>
+            </article>
+            <article class="guide-card">
+              <h2 class="guide-title">Стипендии ФКН</h2>
+              <ul class="soon-points">
+                <li>Яндекса, для олимпиадников, за спортивное программирование, 1С</li>
+                <li>За вклад в науку, «Покровская перспектива», за отличную учёбу</li>
+                <li>«Лучший учебный ассистент», «Молодой предприниматель», для участников мобильности</li>
+              </ul>
+              <div class="guide-links">
+                <a class="guide-link" href="https://cs.hse.ru/stipend" target="_blank" rel="noopener noreferrer">Стипендии ФКН<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://www.hse.ru/scholarships/" target="_blank" rel="noopener noreferrer">Стипендии ВШЭ<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+              </div>
+            </article>
+            <article class="guide-card">
+              <h2 class="guide-title">Проекты и практика</h2>
+              <ul class="soon-points">
+                <li>Темы курсовых проектов для 2–3 курса: приём закрылся 1 октября</li>
+                <li>«Стартап как диплом»: финальные питчи в июне</li>
+                <li>Летняя школа технологического предпринимательства в июле</li>
+              </ul>
+              <div class="guide-links">
+                <a class="guide-link" href="https://cs.hse.ru/cppr/" target="_blank" rel="noopener noreferrer">Центр практики и проектов ФКН<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+              </div>
+            </article>
+            <article class="guide-card">
+              <h2 class="guide-title">Помощь и сообщества</h2>
+              <ul class="soon-points">
+                <li>Учебные ассистенты: стать можно с оценкой по курсу от 6 и без долгов, 6000 ₽ в месяц</li>
+                <li>Студсовет, хакатон-клуб и центр олимпиад ФКН</li>
+                <li>Библиотека и карьерный центр ВШЭ</li>
+              </ul>
+              <div class="guide-links">
+                <a class="guide-link" href="https://cs.hse.ru/initiative/assistants" target="_blank" rel="noopener noreferrer">Ассистенты<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://cs.hse.ru/studsovet/" target="_blank" rel="noopener noreferrer">Студсовет<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://cs.hse.ru/hack-club/" target="_blank" rel="noopener noreferrer">Хакатон-клуб<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://career.hse.ru/" target="_blank" rel="noopener noreferrer">Карьерный центр<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+              </div>
+            </article>
+            <article class="guide-card">
+              <h2 class="guide-title">Справочник учёбы</h2>
+              <ul class="soon-points">
+                <li>Академический календарь и расписание сессий</li>
+                <li>Пересдачи и пропуск экзамена по уважительной причине</li>
+                <li>Английский и цифровые навыки в бакалавриате</li>
+                <li>Справки через электронный сервис «Студент» в ЕЛК</li>
+              </ul>
+              <div class="guide-links">
+                <a class="guide-link" href="https://www.hse.ru/studyspravka/grafik" target="_blank" rel="noopener noreferrer">Академический календарь<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://www.hse.ru/studyspravka/medcert" target="_blank" rel="noopener noreferrer">Пропуск экзамена<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://lk.hse.ru/student-services?section=documents&subsection=certificates" target="_blank" rel="noopener noreferrer">Справки в ЕЛК<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+                <a class="guide-link" href="https://www.hse.ru/studyspravka/" target="_blank" rel="noopener noreferrer">Весь справочник<svg class="icon" aria-hidden="true"><use href="/static/icons.svg#external"></use></svg></a>
+              </div>
+            </article>
           </div>
         </section>
 

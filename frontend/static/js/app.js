@@ -1,12 +1,13 @@
-import { fetchDashboard } from "./api.js";
+import { fetchDashboard, fetchSummary } from "./api.js";
 import { sourceStatusLabel, sourceNeedsAttention } from "./source-status.js";
 import { savedDsbaSelection, savedDataSource, setupDsba } from "./dsba.js";
+import { createSummaryLoader } from "./summary.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const STORE = "hse-agent:";
-const MAIN_VIEWS = ["today", "tasks", "materials", "grades", "settings", "sources", "account"];
+const MAIN_VIEWS = ["today", "tasks", "materials", "summary", "grades", "fkn", "settings", "sources", "account"];
 const priorityLabels = { high: "высокий", medium: "средний", low: "низкий" };
 
 const state = {
@@ -124,7 +125,22 @@ function deadlineText(task, { long = false } = {}) {
   if (offset === 0) day = "Сегодня";
   else if (offset === 1) day = "Завтра";
   else if (offset < 0) day = "Просрочено, " + day;
-  return day + (due.time ? ", " + due.time : long ? ", время не указано" : " · время не указано");
+  return day + (due.time ? ", " + due.time : ", время не указано");
+}
+
+/* Коротко для строки под курсом: «сдать до 23:00», «сдать завтра до 18:00», «сдать 28 окт». */
+function dueShort(task) {
+  if (task.due_requires_confirmation) return "срок нужно уточнить";
+  const due = deadline(task);
+  if (due.kind === "unknown") return "срок не указан";
+  const offset = daysBetween(state.dashboard.plan.date, due.day);
+  if (offset < 0) return "срок прошёл " + dayMonth(due.day);
+  const day = offset === 0 ? "" : offset === 1 ? "завтра " : dayMonth(due.day) + " ";
+  return ("сдать " + day + (due.time ? "до " + due.time : offset === 0 ? "сегодня" : "")).trim();
+}
+
+function moment(value) {
+  return dayMonth(dateKey(value)) + " в " + clock(value);
 }
 
 function signatureText(signature) {
@@ -205,15 +221,6 @@ function flip(list, before) {
       { duration: 600, easing: "cubic-bezier(.22, 1, .36, 1)" },
     );
   }
-}
-
-function stagger(items) {
-  items.forEach((item, index) => {
-    item.style.setProperty("--i", Math.min(index, 10));
-    item.classList.remove("reveal");
-    void item.offsetWidth;
-    item.classList.add("reveal");
-  });
 }
 
 function toast(title, text, tone = "info") {
@@ -328,7 +335,7 @@ function renderPlan() {
     rail.append(node("span", "plan-node"), node("span", "plan-line"));
 
     const card = node("div", "plan-card");
-    const course = node("span", "plan-course", task ? task.course + " · " + deadlineText(task).toLowerCase() : "");
+    const course = node("span", "plan-course", task ? task.course + ", " + dueShort(task) : "");
     if (task && changeFor(task)) course.append(node("span", "changed-chip", "срок перенесён"));
     if (task && isDone(task)) course.append(node("span", "chip chip-done", "готово"));
     card.append(course, node("strong", "plan-title", task?.title || "Учебная задача"));
@@ -349,7 +356,7 @@ function renderPlan() {
     $("#overload-list").replaceChildren(...unscheduled.map((task) => {
       const item = node("li");
       const minutes = minutesFor(task);
-      item.append(node("strong", "", task.title), node("span", "", (minutes ? "≈ " + minutes + " мин · " : "") + deadlineText(task)));
+      item.append(node("strong", "", task.title), node("span", "", dueShort(task) + (minutes ? ", около " + duration(minutes) : "")));
       return item;
     }));
   }
@@ -369,13 +376,13 @@ function dateTile(task) {
     tile.append(node("strong", "", "?"));
   } else if (due.day === state.dashboard.plan.date) {
     tile.classList.add("is-today");
-    tile.append(node("strong", "", "СЕГОДНЯ"), node("span", "", due.time || "весь день"));
+    tile.append(node("strong", "", "сегодня"), node("span", "", due.time || "весь день"));
   } else if (daysBetween(state.dashboard.plan.date, due.day) < 0) {
     tile.classList.add("is-overdue");
-    tile.append(node("strong", "", "СРОК"), node("span", "", "прошёл"));
+    tile.append(node("strong", "", "срок"), node("span", "", "прошёл"));
   } else if (daysBetween(state.dashboard.plan.date, due.day) === 1) {
     tile.classList.add("is-tomorrow");
-    tile.append(node("strong", "", "ЗАВТРА"), node("span", "", due.time || "весь день"));
+    tile.append(node("strong", "", "завтра"), node("span", "", due.time || "весь день"));
   } else {
     const [, , day] = due.day.split("-");
     tile.append(node("strong", "", String(Number(day))), node("span", "", dayMonth(due.day).split(" ")[1] || ""));
@@ -393,14 +400,16 @@ function renderDeadlines() {
     if (state.fresh.has(task.id)) item.classList.add("just-changed");
     const copy = node("span", "deadline-copy");
     const due = deadline(task);
-    const parts = [task.course];
-    if (due.kind === "exact" && !isToday(task)) parts.push(due.time);
-    if (due.kind === "date") parts.push("время не указано");
-    if (due.kind === "unknown") parts.push("срок не указан в источнике");
-    if (task.evidence[0]) parts.push(sourceName(task.evidence[0].source_id));
-    const meta = node("span", "", parts.join(" · "));
+    /* Дату и время для сегодня и завтра уже показывает плитка слева. */
+    const offset = due.day ? daysBetween(state.dashboard.plan.date, due.day) : null;
+    let note = "";
+    if (due.kind === "exact" && offset > 1) note = ", до " + due.time;
+    if (due.kind === "date") note = ", время не указано";
+    if (due.kind === "unknown") note = ", срок не указан";
+    const meta = node("span", "", task.course + note);
     if (changeFor(task)) meta.prepend(node("span", "changed-chip", "перенесён"), document.createTextNode(" "));
     copy.append(node("strong", "", task.title), meta);
+    if (task.evidence[0]) copy.append(node("span", "deadline-source", sourceName(task.evidence[0].source_id)));
     item.append(dateTile(task), copy);
     return item;
   }));
@@ -411,7 +420,7 @@ function renderDeadlines() {
 function sourceStatusText(source) {
   if (source.status === "connected" && source.last_synced_at) return "обновлён в " + clock(source.last_synced_at);
   if (source.status === "error") return source.error_message || "ошибка подключения";
-  if (source.status === "stale" && source.last_synced_at) return "устарели · " + clock(source.last_synced_at);
+  if (source.status === "stale" && source.last_synced_at) return "данные от " + clock(source.last_synced_at);
   return sourceStatusLabel(source.status).toLowerCase();
 }
 
@@ -443,7 +452,7 @@ function priorityFor(task) {
 function setOverride(task, patch) {
   state.overrides[task.id] = { ...state.overrides[task.id], ...patch };
   save("overrides", state.overrides);
-  toast("Браузер запомнил правку", "Сервер начнёт её учитывать вместе с API заданий.");
+  toast("Браузер запомнил правку", "Сервер её пока не видит, поэтому план не изменится.");
 }
 
 function duePanel(task) {
@@ -469,9 +478,9 @@ function duePanel(task) {
   }
   value.append(node("strong", "due-new", deadlineText(task, { long: true })));
   panel.append(value);
-  const zone = due.kind === "date" ? "Источник указал дату без времени" : "";
-  const noticed = change ? "агент заметил перенос в " + clock(change.at) : "";
-  const line = [zone, noticed].filter(Boolean).join(" · ");
+  const zone = due.kind === "date" ? "Источник указал дату без времени." : "";
+  const noticed = change ? "Агент заметил перенос в " + clock(change.at) + "." : "";
+  const line = [zone, noticed].filter(Boolean).join(" ");
   if (line) panel.append(node("span", "due-zone", line));
   return panel;
 }
@@ -483,7 +492,7 @@ function evidenceBlock(task) {
     const figure = node("figure", "evidence");
     figure.append(node("blockquote", "", entry.quote));
     const caption = node("figcaption");
-    let label = sourceName(entry.source_id) + " · " + entry.title;
+    const label = entry.title;
     let safeUrl = null;
     if (entry.url) {
       try {
@@ -500,11 +509,13 @@ function evidenceBlock(task) {
     } else {
       caption.append(document.createTextNode(label));
     }
-    if (entry.published_at) {
-      caption.append(document.createTextNode(" · опубликовано " + dayMonth(dateKey(entry.published_at)) + ", " + clock(entry.published_at)));
-    }
-    if (entry.fetched_at) {
-      caption.append(document.createTextNode(" · получено " + dayMonth(dateKey(entry.fetched_at)) + ", " + clock(entry.fetched_at)));
+    caption.append(document.createTextNode(", " + sourceName(entry.source_id) + "."));
+    const moments = [];
+    if (entry.published_at) moments.push("опубликовано " + moment(entry.published_at));
+    if (entry.fetched_at) moments.push("получено " + moment(entry.fetched_at));
+    if (moments.length) {
+      const text = moments.join(", ");
+      caption.append(document.createTextNode(" " + text[0].toUpperCase() + text.slice(1) + "."));
     }
     figure.append(caption);
     wrap.append(figure);
@@ -721,7 +732,9 @@ function materialCard(entry, query) {
     ...entry.tasks.flatMap((task) => task.evidence.map((item) => sourceName(item.source_id))),
     ...(entry.source_id ? [sourceName(entry.source_id)] : []),
   ])];
-  const meta = node("span", "material-meta", [first ? deadlineText(first) : null, ...sources].filter(Boolean).join(" · "));
+  const meta = node("span", "material-meta");
+  if (first) meta.append(node("span", "", dueShort(first)[0].toUpperCase() + dueShort(first).slice(1)));
+  if (sources.length) meta.append(node("span", "", sources.join(", ")));
   if (entry.tasks.length) body.append(links);
   body.append(meta);
   item.append(mark, body);
@@ -769,7 +782,6 @@ function renderMaterials() {
     group.append(heading, list);
     return group;
   }));
-  stagger($$("#materials-list .material-group"));
   const empty = !visible.length;
   $("#materials-empty").hidden = !empty;
   if (empty) {
@@ -813,11 +825,64 @@ document.addEventListener("click", (event) => {
   }, animate() ? 450 : 0);
 });
 
+/* ---------- Сводка: реальные страницы или выбранный учебный пример ---------- */
+const summaryLoader = createSummaryLoader({
+  getDashboard: () => state.dashboard,
+  getDataSource: () => state.dataSource,
+  fetchSummary,
+  onLoading(loading) {
+    $("#summary-refresh").disabled = loading;
+    if (loading) $("#summary-panel").replaceChildren(node("p", "settings-hint", "Загружаем сводку…"));
+  },
+  onResult(body) {
+    const panel = $("#summary-panel");
+    const summary = body.summary;
+    if (!summary) {
+      panel.replaceChildren(emptyBlock("Сводки пока нет", "Агент составит её, когда прочитает и разберёт учебные страницы."));
+      return;
+    }
+    const highlights = node("ul", "summary-points");
+    highlights.append(...(summary.highlights || []).map((point) => {
+      const item = node("li");
+      const count = point.document_ids?.length || 0;
+      item.append(node("p", "", point.text));
+      if (!body.fake) item.append(node("span", "chip", count + " " + plural(count, "источник", "источника", "источников")));
+      return item;
+    }));
+    const meta = node("p", "settings-hint", body.fake
+      ? "Фейк-данные. Это обзор выбранного примера, без обращения к ИИ и реальным источникам."
+      : "Модель " + body.model + " составила сводку " + moment(body.created_at)
+        + ". Это пересказ учебных страниц, а не персональный план. Сроки сверяй с источниками.");
+    panel.replaceChildren(node("p", "summary-text", summary.summary), highlights, meta);
+  },
+  onError(error) {
+    const title = error.status === 503 ? "Сводка пока недоступна" : "Не получилось загрузить сводку";
+    $("#summary-panel").replaceChildren(emptyBlock(title, error.message));
+  },
+});
+
+function loadSummary() {
+  return summaryLoader.load();
+}
+
+function invalidateSummary() {
+  summaryLoader.invalidate();
+  $("#summary-panel").replaceChildren();
+}
+
+function emptyBlock(title, text) {
+  const block = node("div", "empty-state");
+  block.append(node("strong", "", title), node("p", "", text));
+  return block;
+}
+
+$("#summary-refresh").addEventListener("click", loadSummary);
+
 /* ---------- Источники ---------- */
 function renderSources() {
   const { sources } = state.dashboard;
   const connected = sources.filter((source) => source.status === "connected").length;
-  $("#sources-lead").textContent = "Полностью обновлены " + connected + " из " + sources.length + " источников. В каждой строке видно время последнего успешного обновления.";
+  $("#sources-lead").textContent = "Полностью обновлены " + connected + " из " + sources.length + " " + plural(sources.length, "источника", "источников", "источников") + ".";
   $("#source-grid").replaceChildren(...sources.map((source) => {
     const card = node("li", "source-card");
     const main = node("div", "source-main");
@@ -829,8 +894,8 @@ function renderSources() {
     dot.setAttribute("aria-hidden", "true");
     status.append(dot, document.createTextNode(sourceStatusLabel(source.status)));
     side.append(status, node("span", "source-meta", source.last_synced_at
-      ? "Последнее успешное обновление: " + dayMonth(dateKey(source.last_synced_at)) + ", " + clock(source.last_synced_at)
-      : "Полного успешного обновления пока не было"));
+      ? "Последнее успешное обновление " + moment(source.last_synced_at)
+      : "Успешных обновлений пока не было"));
     card.append(main, side);
     if (source.error_message) card.append(node("p", "source-error", source.error_message));
     return card;
@@ -891,7 +956,6 @@ function applyView(name) {
     else link.removeAttribute("aria-current");
   });
   const current = $(`[data-view="${name}"]`);
-  if (state.dashboard) stagger([...current.children]);
   moveIndicator();
 }
 
@@ -901,6 +965,7 @@ function showView({ focus = true } = {}) {
   if (name === state.view) return;
   const first = state.view === null;
   state.view = name;
+  if (name === "summary" && !summaryLoader.loaded) loadSummary();
   if (!first && animate() && document.startViewTransition) {
     document.startViewTransition(() => applyView(name));
   } else {
@@ -970,14 +1035,18 @@ async function loadDashboard() {
       state.reloadRequested = true; return;
     }
     state.dashboard = dashboard;
+    invalidateSummary();
     detectChanges(state.dashboard.tasks);
     $("#load-error").hidden = true;
     renderAll();
     if (state.fresh.size) setTimeout(() => state.fresh.clear(), 4000);
     if (state.view === null) showView({ focus: false });
-    else applyView(state.view);
+    else {
+      applyView(state.view);
+      if (state.view === "summary") loadSummary();
+    }
     const { mode, generated_at: generatedAt } = state.dashboard.meta;
-    const suffix = mode === "live" ? "" : mode === "demo" ? " · учебные примеры" : " · источники не подключены";
+    const suffix = mode === "live" ? "" : mode === "demo" ? ". На экране учебные примеры" : ". Источники не подключены";
     setSync(mode === "live" ? "ok" : "demo", "Связь Вааааась");
     $("#sync-state").title = "Ответ сервера в " + clock(generatedAt) + suffix;
   } catch (error) {
@@ -1002,27 +1071,39 @@ async function loadDashboard() {
   }
 }
 
-/* ---------- Тема: ВШЭ или «Вкусно и точка» ---------- */
-function currentTheme() {
-  return document.documentElement.dataset.theme === "vit" ? "vit" : "hse";
+/* ---------- Тема: как в системе, светлая или тёмная ---------- */
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function themePreference() {
+  const saved = load("theme", "system");
+  return ["light", "dark"].includes(saved) ? saved : "system";
+}
+
+function effectiveTheme() {
+  const preference = themePreference();
+  if (preference !== "system") return preference;
+  return darkQuery.matches ? "dark" : "light";
 }
 
 function syncThemeControls() {
-  const theme = currentTheme();
-  $("#theme-button").setAttribute("aria-pressed", String(theme === "vit"));
-  $("#theme-button").setAttribute("aria-label", theme === "vit" ? "Вернуть тему ВШЭ" : "Тема «Вкусно и точка»");
-  for (const input of $$("input[name=theme]")) input.checked = input.value === theme;
+  const dark = effectiveTheme() === "dark";
+  const button = $("#theme-button");
+  button.setAttribute("aria-pressed", String(dark));
+  button.setAttribute("aria-label", dark ? "Включить светлую тему" : "Включить тёмную тему");
+  $("use", button).setAttribute("href", "/static/icons.svg#" + (dark ? "sun" : "moon"));
+  for (const input of $$("input[name=theme]")) input.checked = input.value === themePreference();
 }
 
-function setTheme(theme, origin) {
-  if (theme === currentTheme()) return;
+function setTheme(preference, origin) {
+  const before = effectiveTheme();
+  save("theme", preference);
   const apply = () => {
-    if (theme === "vit") document.documentElement.dataset.theme = "vit";
-    else delete document.documentElement.dataset.theme;
+    if (preference === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = preference;
     syncThemeControls();
   };
-  save("theme", theme);
-  if (!animate() || !document.startViewTransition) { apply(); return; }
+  if (before === (preference === "system" ? (darkQuery.matches ? "dark" : "light") : preference)
+      || !animate() || !document.startViewTransition) { apply(); return; }
   const x = origin?.x ?? innerWidth - 60;
   const y = origin?.y ?? 50;
   const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
@@ -1031,14 +1112,14 @@ function setTheme(theme, origin) {
   transition.ready.then(() => {
     document.documentElement.animate(
       { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-      { duration: 750, easing: "cubic-bezier(.65, 0, .35, 1)", pseudoElement: "::view-transition-new(root)" },
+      { duration: 650, easing: "cubic-bezier(.65, 0, .35, 1)", pseudoElement: "::view-transition-new(root)" },
     );
   });
   transition.finished.finally(() => document.documentElement.classList.remove("theme-switching"));
 }
 
 $("#theme-button").addEventListener("click", (event) => {
-  setTheme(currentTheme() === "vit" ? "hse" : "vit", { x: event.clientX, y: event.clientY });
+  setTheme(effectiveTheme() === "dark" ? "light" : "dark", { x: event.clientX, y: event.clientY });
 });
 for (const input of $$("input[name=theme]")) {
   input.addEventListener("change", () => {
@@ -1046,6 +1127,7 @@ for (const input of $$("input[name=theme]")) {
     setTheme(input.value, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
   });
 }
+darkQuery.addEventListener("change", syncThemeControls);
 syncThemeControls();
 
 /* ---------- Ширина меню: перетаскивание, стрелки, двойной клик ---------- */
@@ -1130,6 +1212,7 @@ const profileController = setupDsba(async (sourceId, resetPersonal, dataSource) 
   }
   state.dsbaSourceId = sourceId;
   state.dataSource = dataSource;
+  invalidateSummary();
   await loadDashboard();
 });
 setInterval(() => {

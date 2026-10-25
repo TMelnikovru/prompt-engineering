@@ -106,7 +106,7 @@ export function setupDsba(onConnected) {
   function fillGroup(selection = null) {
     const y = selectedYear();
     options(group, (y?.groups || []).map((value) => [value, value]),
-      y?.groups.length ? "Выберите группу" : "Общие материалы курса");
+      y?.groups.length ? "Выбери группу" : "Общие материалы курса");
     group.disabled = !y?.groups.length;
     group.required = !!y?.groups.length;
     group.value = selection?.group || "";

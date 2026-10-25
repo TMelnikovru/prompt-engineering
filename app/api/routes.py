@@ -58,7 +58,7 @@ async def dashboard(
             content=ApiError(
                 error=ApiErrorDetail(
                     code="preview_unavailable",
-                    message="Пример ошибки загрузки. Попробуйте обновить страницу.",
+                    message="Пример ошибки загрузки. Попробуй обновить страницу.",
                     retryable=True,
                 )
             ).model_dump(),
@@ -89,7 +89,7 @@ async def dashboard(
                 result.meta.notice = (
                     f"В библиотеке {total} записей из подключённых источников. "
                     "Задания DSBA относятся к выбранной группе. Приоритеты — рекомендации. "
-                    "Страницы вики ещё не назначены вашему курсу."
+                    "Страницы вики ещё не привязаны к твоему курсу."
                 )
         except SQLAlchemyError:
             result.meta.notice = "Хранилище источников временно недоступно."

@@ -66,13 +66,11 @@ async def synchronize(request: Request, selection: DsbaSelection) -> Any:
         )
     except DsbaError as exc:
         if exc.code == "dsba_invalid_selection":
-            return error(400, exc.code, "Выберите программу, курс и группу из каталога сайта.")
+            return error(400, exc.code, "Выбери программу, курс и группу из каталога сайта.")
         if exc.code == "dsba_profile_limit":
             return error(429, exc.code, "Достигнут лимит подключённых учебных групп.")
-        return error(502, exc.code, "Не удалось получить данные dsba.online. Попробуйте позже.")
+        return error(502, exc.code, "Не получилось получить данные dsba.online. Попробуй позже.")
     except SyncBusy:
-        return error(
-            409, "dsba_sync_in_progress", "Обновление DSBA уже выполняется. Попробуйте позже."
-        )
+        return error(409, "dsba_sync_in_progress", "DSBA уже обновляется. Попробуй через минуту.")
     except SQLAlchemyError:
         return error(503, "database_unavailable", "Хранилище источников недоступно.")

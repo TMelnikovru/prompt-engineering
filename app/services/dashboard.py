@@ -58,7 +58,7 @@ def get_dashboard(settings: Settings, scenario: PreviewScenario) -> Dashboard:
             priority="high",
             due_at=moment(0, 23, 0),
             estimated_minutes=60,
-            materials=["Семинар 6 · Проверка гипотез", "Задачи 1–4 из учебного примера"],
+            materials=["Семинар 6. Проверка гипотез", "Задачи 1–4 из учебного примера"],
             evidence=[
                 Evidence(
                     source_id="smartlms",
@@ -74,7 +74,7 @@ def get_dashboard(settings: Settings, scenario: PreviewScenario) -> Dashboard:
             priority="medium",
             due_at=moment(1, 18, 0),
             estimated_minutes=45,
-            materials=["Конспект · BFS и DFS"],
+            materials=["Конспект по BFS и DFS"],
             evidence=[
                 Evidence(
                     source_id="mail",
@@ -118,13 +118,13 @@ def get_dashboard(settings: Settings, scenario: PreviewScenario) -> Dashboard:
             task_id="demo-statistics",
             starts_at=moment(0, 16, 0),
             minutes=60,
-            reason="Ближайший точный дедлайн — сегодня вечером.",
+            reason="Сдать нужно сегодня до 23:00, это ближайший срок.",
         ),
         PlanBlock(
             task_id="demo-algorithms",
             starts_at=moment(0, 17, 15),
             minutes=45,
-            reason="Начать подготовку к завтрашнему семинару заранее.",
+            reason="Семинар завтра в 18:00, сегодня есть время начать.",
         ),
     ]
     result.plan.unscheduled_task_ids = ["demo-project", "demo-reading"]
