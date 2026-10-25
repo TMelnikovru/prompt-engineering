@@ -10,7 +10,7 @@ const viewCopy = {
 };
 const statusLabels = {
   not_connected: "Не подключён", connected: "Подключён", syncing: "Обновляется",
-  error: "Ошибка подключения", stale: "Данные устарели",
+  error: "Ошибка подключения", stale: "Данные устарели", partial: "Загружено частично",
 };
 
 function node(tag, className, text) {

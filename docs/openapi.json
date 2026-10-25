@@ -865,6 +865,7 @@
               "not_connected",
               "connected",
               "syncing",
+              "partial",
               "error",
               "stale"
             ],

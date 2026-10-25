@@ -123,7 +123,8 @@ meter::-moz-meter-bar { background: #a8c68b; border-radius: 6px; }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: #b6beaf; }
 .source-status[data-status="connected"] .status-dot { background: #629a68; }
 .source-status[data-status="error"] .status-dot { background: #c77d66; }
-.source-status[data-status="stale"] .status-dot { background: #b69a55; }
+.source-status[data-status="stale"] .status-dot,
+.source-status[data-status="partial"] .status-dot { background: #b69a55; }
 .source-updated { display: block; color: #929c89; font-size: 8px; margin-top: 8px; }
 .page-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 23px; font-size: 9px; color: #929b8c; }
 .load-state { padding: 70px 20px; text-align: center; background: white; border: 1px solid var(--line); border-radius: var(--radius); }

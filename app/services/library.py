@@ -12,14 +12,16 @@ async def list_sources(database: Database) -> list[dict]:
         sources = (await session.scalars(select(IngestionSource))).all()
         result = []
         for source in sources:
-            expired = source.last_synced_at is not None and source.last_synced_at < (
+            count, last_seen = (
+                await session.execute(
+                    select(func.count(), func.max(SourceDocument.last_seen_at)).where(
+                        SourceDocument.source_id == source.id
+                    )
+                )
+            ).one()
+            expired = last_seen is not None and last_seen < (
                 datetime.now(UTC)
                 - timedelta(seconds=2 * source.config.get("interval_seconds", 900))
-            )
-            count = await session.scalar(
-                select(func.count())
-                .select_from(SourceDocument)
-                .where(SourceDocument.source_id == source.id)
             )
             run = await session.scalar(
                 select(IngestionRun)
@@ -31,7 +33,11 @@ async def list_sources(database: Database) -> list[dict]:
                 "syncing"
                 if run and run.status == "running"
                 else "stale"
-                if expired or (source.last_error and source.last_synced_at)
+                if expired
+                else "partial"
+                if run and run.status == "partial" and count
+                else "stale"
+                if source.last_error and count
                 else "error"
                 if source.last_error
                 else "connected"
@@ -52,6 +58,8 @@ async def list_sources(database: Database) -> list[dict]:
                     "last_run": {
                         "id": str(run.id),
                         "status": run.status,
+                        "started_at": run.started_at,
+                        "finished_at": run.finished_at,
                         "created": run.created_count,
                         "updated": run.updated_count,
                         "unchanged": run.unchanged_count,

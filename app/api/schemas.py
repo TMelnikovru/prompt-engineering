@@ -15,7 +15,7 @@ class Source(BaseModel):
     id: str
     name: str
     description: str
-    status: Literal["not_connected", "connected", "syncing", "error", "stale"]
+    status: Literal["not_connected", "connected", "syncing", "partial", "error", "stale"]
     last_synced_at: AwareDatetime | None = None
     error_message: str | None = None
 

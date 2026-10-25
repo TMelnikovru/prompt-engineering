@@ -72,9 +72,11 @@ def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url
             repeated = await sync_wiki(database, settings)
             assert repeated["unchanged"] == 2 and repeated["created"] == 0
             collected = await collect_wiki(settings)
+            collected.errors = [{"title": "Недоступная ссылка", "code": "wiki_missingtitle"}]
             imported = await sync_wiki(database, settings, batch=collected)
             assert imported["unchanged"] == 2
             assert (await list_sources(database))[0]["scope"]["transport"] == "collector"
+            assert (await list_sources(database))[0]["status"] == "partial"
             async with database.session() as session:
                 assert await session.scalar(select(func.count()).select_from(SourceDocument)) == 2
                 assert await session.scalar(select(func.count()).select_from(DocumentVersion)) == 2
