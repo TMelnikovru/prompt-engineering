@@ -1,3 +1,6 @@
+import re
+from urllib.parse import urlsplit
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -66,3 +69,20 @@ def test_site_and_its_local_assets_are_served_without_api_keys():
     for asset in ("/static/css/app.css", "/static/js/app.js", "/static/js/api.js"):
         assert api.get(asset).status_code == 200
     assert api.get("/api/v1/health").json()["status"] == "ok"
+
+
+def test_page_assets_keep_https_when_proxy_uses_http_to_the_app():
+    api = client()
+    response = api.get("/", headers={"Host": "hse.example", "X-Forwarded-Proto": "https"})
+    assert response.status_code == 200
+    assets = [
+        url for url in re.findall(r'(?:href|src)="([^"]+)"', response.text) if "/static/" in url
+    ]
+    assert assets
+    for asset in assets:
+        # Same-origin paths inherit the browser's HTTPS scheme even when proxy
+        # headers are not trusted by the internal HTTP server.
+        parsed = urlsplit(asset)
+        assert not parsed.scheme
+        assert not parsed.netloc
+        assert api.get(asset).status_code == 200
