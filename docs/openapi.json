@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HSE Study Agent",
-    "description": "Контракт для разработки сайта учебного агента. Живые интеграции, LLM и фоновые напоминания пока не реализованы.",
+    "description": "Контракт для разработки сайта учебного агента. Вики ФКН, DSBA Online по выбранной группе, библиотека PostgreSQL и сохранённые результаты ИИ-обработки. Персональные задания, план и напоминания ещё не формируются из вики.",
     "version": "0.1.0"
   },
   "paths": {
@@ -1286,7 +1286,8 @@
                 "type": "null"
               }
             ],
-            "title": "Error Message"
+            "title": "Error Message",
+            "description": "Сообщение для интерфейса; технический код здесь не показывается."
           }
         },
         "type": "object",
@@ -1308,21 +1309,21 @@
             "type": "string",
             "title": "Name"
           },
-          "kind": {
+          "description": {
             "type": "string",
-            "title": "Kind"
-          },
-          "base_url": {
-            "type": "string",
-            "title": "Base Url"
+            "title": "Description"
           },
           "status": {
             "type": "string",
+            "enum": [
+              "not_connected",
+              "connected",
+              "syncing",
+              "partial",
+              "error",
+              "stale"
+            ],
             "title": "Status"
-          },
-          "document_count": {
-            "type": "integer",
-            "title": "Document Count"
           },
           "last_synced_at": {
             "anyOf": [
@@ -1336,6 +1337,30 @@
             ],
             "title": "Last Synced At"
           },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Сообщение для интерфейса; технический код здесь не показывается."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "document_count": {
+            "type": "integer",
+            "title": "Document Count"
+          },
           "last_error": {
             "anyOf": [
               {
@@ -1345,7 +1370,8 @@
                 "type": "null"
               }
             ],
-            "title": "Last Error"
+            "title": "Last Error",
+            "description": "Технический код для диагностики. Пользователю показывайте error_message."
           },
           "scope": {
             "additionalProperties": true,
@@ -1369,16 +1395,17 @@
         "required": [
           "id",
           "name",
+          "description",
+          "status",
           "kind",
           "base_url",
-          "status",
           "document_count",
-          "last_synced_at",
           "last_error",
           "scope",
           "last_run"
         ],
-        "title": "SourceView"
+        "title": "SourceView",
+        "description": "The dashboard's source contract, plus operator and library metadata."
       },
       "SyncResult": {
         "properties": {

@@ -41,6 +41,8 @@ async def sync_dsba(
             )
             if (
                 not force
+                and source is not None
+                and source.base_url == settings.dsba_base_url
                 and previous
                 and previous.finished_at
                 and (previous.finished_at > datetime.now(UTC) - timedelta(seconds=60))
@@ -88,6 +90,7 @@ async def sync_dsba(
                     session.add(source)
                 else:
                     source.config = scope
+                    source.base_url = settings.dsba_base_url
                 await session.execute(
                     update(IngestionRun)
                     .where(IngestionRun.source_id == source_id, IngestionRun.status == "running")

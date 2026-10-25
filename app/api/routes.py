@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import __version__
-from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness
+from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
 from app.services.dsba import dsba_tasks
 from app.services.library import list_sources
@@ -64,22 +64,11 @@ async def dashboard(
                 s for s in stored_sources if s["kind"] != "dsba" or s["id"] == dsba_source_id
             ]
             for stored in visible:
-                for source in result.sources:
+                for index, source in enumerate(result.sources):
                     if source.id == stored["id"] or (
                         source.id == "dsba" and stored["id"] == dsba_source_id
                     ):
-                        source.id = stored["id"]
-                        source.name = stored["name"]
-                        source.status = stored["status"]
-                        source.last_synced_at = stored["last_synced_at"]
-                        source.error_message = (
-                            "Получены не все записи: достигнут настроенный лимит."
-                            if stored["last_error"] == "dsba_record_limit"
-                            else "Часть данных dsba.online недоступна. "
-                            "Сохранены последние известные записи."
-                            if stored["kind"] == "dsba" and stored["last_error"]
-                            else stored["last_error"]
-                        )
+                        result.sources[index] = Source.model_validate(stored)
             if dsba_source_id:
                 result.tasks = await dsba_tasks(database, dsba_source_id)
                 result.plan.note = "Задания получены из DSBA. План дня ещё не рассчитан."

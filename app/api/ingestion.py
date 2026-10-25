@@ -6,11 +6,11 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.api.schemas import ApiError
+from app.api.schemas import ApiError, Source
 from app.db.models import AiArtifact
 from app.services.ingestion import SyncBusy, sync_wiki
 from app.services.library import get_document, list_documents, list_sources
@@ -18,15 +18,15 @@ from app.services.library import get_document, list_documents, list_sources
 router = APIRouter(prefix="/api/v1", tags=["knowledge"])
 
 
-class SourceView(BaseModel):
-    id: str
-    name: str
+class SourceView(Source):
+    """The dashboard's source contract, plus operator and library metadata."""
+
     kind: str
     base_url: str
-    status: str
     document_count: int
-    last_synced_at: datetime | None
-    last_error: str | None
+    last_error: str | None = Field(
+        description="Технический код для диагностики. Пользователю показывайте error_message."
+    )
     scope: dict[str, Any]
     last_run: dict[str, Any] | None
 
