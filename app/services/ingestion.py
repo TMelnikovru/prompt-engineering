@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
-from app.connectors.wiki import WikiConnector, WikiError, WikiPage
+from app.connectors.wiki import WikiBatch, WikiConnector, WikiError, WikiPage
 from app.db.models import DocumentVersion, IngestionRun, IngestionSource, SourceDocument
 from app.db.session import Database
 
@@ -84,12 +84,18 @@ async def store_page(database: Database, page: WikiPage) -> str:
         return "created" if created else "updated" if changed else "unchanged"
 
 
-async def sync_wiki(database: Database, settings: Settings) -> dict:
+async def sync_wiki(database: Database, settings: Settings, batch: WikiBatch | None = None) -> dict:
     async with ingestion_lock(database, "hse:wiki:sync"):
         scope = {
             "seeds": settings.wiki_seeds,
             "max_pages": settings.wiki_max_pages,
             "max_depth": settings.wiki_max_depth,
+        }
+        scope = {
+            **scope,
+            **(batch.scope if batch else {}),
+            "transport": "collector" if batch else "direct",
+            "interval_seconds": settings.wiki_interval_seconds,
         }
         run_id = uuid4()
         async with database.session() as session, session.begin():
@@ -121,29 +127,36 @@ async def sync_wiki(database: Database, settings: Settings) -> dict:
         visited_titles, visited_ids = set(), set()
         attempts = 0
         try:
-            async with WikiConnector(settings) as connector:
-                while queue and len(visited_ids) < settings.wiki_max_pages:
-                    title, depth = queue.popleft()
-                    if title in visited_titles:
-                        continue
-                    visited_titles.add(title)
-                    attempts += 1
-                    if attempts > settings.wiki_max_pages * 3:
-                        break
-                    try:
-                        page = await connector.fetch_page(title)
-                        if page.external_id in visited_ids:
+            if batch is not None:
+                errors.extend(batch.errors)
+                queue.clear()
+                for page in batch.pages:
+                    counts[await store_page(database, page)] += 1
+                    visited_ids.add(page.external_id)
+            else:
+                async with WikiConnector(settings) as connector:
+                    while queue and len(visited_ids) < settings.wiki_max_pages:
+                        title, depth = queue.popleft()
+                        if title in visited_titles:
                             continue
-                        counts[await store_page(database, page)] += 1
-                        visited_ids.add(page.external_id)
-                        if depth < settings.wiki_max_depth:
-                            queue.extend((item, depth + 1) for item in page.linked_titles)
-                    except WikiError as exc:
-                        errors.append({"title": title, "code": exc.code})
-                    if settings.wiki_request_delay:
-                        import asyncio
+                        visited_titles.add(title)
+                        attempts += 1
+                        if attempts > settings.wiki_max_pages * 3:
+                            break
+                        try:
+                            page = await connector.fetch_page(title)
+                            if page.external_id in visited_ids:
+                                continue
+                            counts[await store_page(database, page)] += 1
+                            visited_ids.add(page.external_id)
+                            if depth < settings.wiki_max_depth:
+                                queue.extend((item, depth + 1) for item in page.linked_titles)
+                        except WikiError as exc:
+                            errors.append({"title": title, "code": exc.code})
+                        if settings.wiki_request_delay:
+                            import asyncio
 
-                        await asyncio.sleep(settings.wiki_request_delay)
+                            await asyncio.sleep(settings.wiki_request_delay)
         except BaseException:
             # Cancellation and DB errors must not make an unfinished run look successful.
             async with database.session() as session, session.begin():
@@ -163,7 +176,7 @@ async def sync_wiki(database: Database, settings: Settings) -> dict:
             run.updated_count = counts["updated"]
             run.unchanged_count = counts["unchanged"]
             run.errors = errors[:50]
-            run.scope = {**scope, "has_more": bool(queue)}
+            run.scope = {**scope, "has_more": batch.has_more if batch else bool(queue)}
             source = await session.get(IngestionSource, "wiki")
             source.last_error = errors[0]["code"] if errors else None
             if status == "success":
@@ -173,6 +186,6 @@ async def sync_wiki(database: Database, settings: Settings) -> dict:
             "status": status,
             **counts,
             "errors": errors,
-            "has_more": bool(queue),
+            "has_more": batch.has_more if batch else bool(queue),
             "scope": scope,
         }

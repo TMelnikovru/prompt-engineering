@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -11,6 +12,10 @@ async def list_sources(database: Database) -> list[dict]:
         sources = (await session.scalars(select(IngestionSource))).all()
         result = []
         for source in sources:
+            expired = source.last_synced_at is not None and source.last_synced_at < (
+                datetime.now(UTC)
+                - timedelta(seconds=2 * source.config.get("interval_seconds", 900))
+            )
             count = await session.scalar(
                 select(func.count())
                 .select_from(SourceDocument)
@@ -26,7 +31,7 @@ async def list_sources(database: Database) -> list[dict]:
                 "syncing"
                 if run and run.status == "running"
                 else "stale"
-                if source.last_error and source.last_synced_at
+                if expired or (source.last_error and source.last_synced_at)
                 else "error"
                 if source.last_error
                 else "connected"

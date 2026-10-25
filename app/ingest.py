@@ -3,12 +3,14 @@
 import argparse
 import asyncio
 import json
+import sys
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
+from app.connectors.wiki import WikiBatch
 from app.db.models import AiArtifact, DocumentVersion, SourceDocument
 from app.db.session import Database
 from app.services.analysis import (
@@ -91,6 +93,9 @@ async def execute(args) -> int:
                 if args.command != "worker":
                     return 2 if result["status"] == "failed" else 0
                 await asyncio.sleep(settings.wiki_interval_seconds)
+        elif args.command == "import-wiki":
+            batch = WikiBatch.model_validate_json(sys.stdin.read(100_000_000))
+            emit(await sync_wiki(database, settings, batch=batch))
         elif args.command == "analyze":
             if args.document:
                 result = await analyze_document(database, settings, UUID(args.document))
@@ -117,6 +122,7 @@ async def execute(args) -> int:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("import-wiki")
     for name in ("sync-wiki", "worker"):
         command = commands.add_parser(name)
         command.add_argument("--max-pages", type=int)

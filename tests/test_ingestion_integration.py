@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select, text
 
 from app.config import Settings
+from app.connectors.wiki import collect_wiki
 from app.db.models import AiArtifact, DocumentVersion, SourceDocument
 from app.db.session import Database
 from app.db.url import postgresql_url
@@ -70,6 +71,10 @@ def test_complete_ingestion_pipeline_versions_cache_errors_and_api(ingestion_url
             assert first["status"] == "success" and first["created"] == 2
             repeated = await sync_wiki(database, settings)
             assert repeated["unchanged"] == 2 and repeated["created"] == 0
+            collected = await collect_wiki(settings)
+            imported = await sync_wiki(database, settings, batch=collected)
+            assert imported["unchanged"] == 2
+            assert (await list_sources(database))[0]["scope"]["transport"] == "collector"
             async with database.session() as session:
                 assert await session.scalar(select(func.count()).select_from(SourceDocument)) == 2
                 assert await session.scalar(select(func.count()).select_from(DocumentVersion)) == 2

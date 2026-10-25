@@ -2,12 +2,14 @@ import asyncio
 import hashlib
 import json
 import re
+from collections import deque
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import unquote, urlencode, urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from app.config import Settings
 from app.connectors.base import SourceRecord
@@ -27,6 +29,50 @@ class WikiPage(SourceRecord):
     content_hash: str
     linked_titles: list[str] = Field(default_factory=list)
     links: list[dict[str, str]] = Field(default_factory=list)
+
+
+class WikiBatch(BaseModel):
+    pages: list[WikiPage] = Field(max_length=500)
+    errors: list[dict[str, str]] = Field(default_factory=list)
+    scope: dict[str, Any]
+    has_more: bool = False
+
+
+async def collect_wiki(settings: Settings) -> WikiBatch:
+    """Коллектор может работать в сети, где доступен источник, отдельно от БД."""
+    queue = deque((title, 0) for title in settings.wiki_seeds)
+    titles, ids, pages, errors = set(), set(), [], []
+    attempts = 0
+    async with WikiConnector(settings) as connector:
+        while queue and len(pages) < settings.wiki_max_pages:
+            title, depth = queue.popleft()
+            if title in titles:
+                continue
+            titles.add(title)
+            attempts += 1
+            if attempts > settings.wiki_max_pages * 3:
+                break
+            try:
+                page = await connector.fetch_page(title)
+                if page.external_id in ids:
+                    continue
+                pages.append(page)
+                ids.add(page.external_id)
+                if depth < settings.wiki_max_depth:
+                    queue.extend((item, depth + 1) for item in page.linked_titles)
+            except WikiError as exc:
+                errors.append({"title": title, "code": exc.code})
+            await asyncio.sleep(settings.wiki_request_delay)
+    return WikiBatch(
+        pages=pages,
+        errors=errors,
+        has_more=bool(queue),
+        scope={
+            "seeds": settings.wiki_seeds,
+            "max_pages": settings.wiki_max_pages,
+            "max_depth": settings.wiki_max_depth,
+        },
+    )
 
 
 def clean_html(html: str) -> tuple[str, list[tuple[str, str]]]:
