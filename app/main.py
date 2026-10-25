@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -12,6 +12,7 @@ from app.api.ingestion import router as ingestion_router
 from app.api.routes import router
 from app.config import Settings
 from app.db.session import Database
+from app.services.fake_data import FAKE_MATERIALS
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -48,6 +49,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(ingestion_router)
     application.mount("/static", StaticFiles(directory=ROOT / "frontend" / "static"), name="static")
     templates = Jinja2Templates(directory=ROOT / "frontend" / "templates")
+
+    @application.get("/demo/materials/{slug}", response_class=HTMLResponse, include_in_schema=False)
+    def fake_material(request: Request, slug: str) -> HTMLResponse:
+        if slug not in FAKE_MATERIALS:
+            raise HTTPException(status_code=404)
+        title, course, text = FAKE_MATERIALS[slug]
+        return templates.TemplateResponse(
+            request=request,
+            name="fake-material.html",
+            context={"title": title, "course": course, "text": text},
+        )
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     def index(request: Request) -> HTMLResponse:

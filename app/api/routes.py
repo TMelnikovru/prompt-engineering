@@ -1,4 +1,5 @@
 import asyncio
+from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
@@ -8,6 +9,7 @@ from app import __version__
 from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
 from app.services.dsba import dsba_materials, dsba_tasks
+from app.services.fake_data import get_fake_dashboard
 from app.services.library import list_sources
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
@@ -22,6 +24,9 @@ router = APIRouter(prefix="/api/v1", tags=["dashboard"])
         "учебную группу DSBA; без него её задания не показываются. "
         "По умолчанию разработки возвращает явно помеченные учебные примеры. "
         "scenario=empty и scenario=error доступны только в демо-режиме."
+        " data_source=fake явно выбирает изолированные фейк-данные даже на сервере. "
+        "available_minutes и completed (идентификаторы через запятую) "
+        "пересчитывают только фейк-план."
     ),
     responses={
         400: {"model": ApiError, "description": "Сценарий примера отключён"},
@@ -32,6 +37,9 @@ async def dashboard(
     request: Request,
     scenario: PreviewScenario = PreviewScenario.DEFAULT,
     dsba_source_id: str | None = Query(default=None, pattern=r"^dsba:[0-9a-f]{32}$"),
+    data_source: Literal["live", "fake"] = "live",
+    available_minutes: int = Query(default=120, ge=0, le=720),
+    completed: str = Query(default="", max_length=4000),
 ) -> Dashboard | JSONResponse:
     settings = request.app.state.settings
     if not settings.demo_mode and scenario != PreviewScenario.DEFAULT:
@@ -55,6 +63,8 @@ async def dashboard(
                 )
             ).model_dump(),
         )
+    if data_source == "fake" and scenario == PreviewScenario.DEFAULT:
+        return get_fake_dashboard(settings, available_minutes, set(completed.split(",")))
     result = get_dashboard(settings, scenario)
     database = request.app.state.database
     if database is not None and not settings.demo_mode:

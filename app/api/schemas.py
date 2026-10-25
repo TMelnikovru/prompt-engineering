@@ -52,6 +52,7 @@ class Task(BaseModel):
     evidence: list[Evidence]
     due_requires_confirmation: bool = False
     deadline_changed: str | None = None
+    previous_due_at: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def one_deadline_representation(self) -> "Task":

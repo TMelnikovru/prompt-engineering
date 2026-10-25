@@ -12,7 +12,7 @@
           "dashboard"
         ],
         "summary": "Задания, план дня и состояния источников",
-        "description": "Задания и состояния источников. dsba_source_id выбирает только подключённую учебную группу DSBA; без него её задания не показываются. По умолчанию разработки возвращает явно помеченные учебные примеры. scenario=empty и scenario=error доступны только в демо-режиме.",
+        "description": "Задания и состояния источников. dsba_source_id выбирает только подключённую учебную группу DSBA; без него её задания не показываются. По умолчанию разработки возвращает явно помеченные учебные примеры. scenario=empty и scenario=error доступны только в демо-режиме. data_source=fake явно выбирает изолированные фейк-данные даже на сервере. available_minutes и completed (идентификаторы через запятую) пересчитывают только фейк-план.",
         "operationId": "dashboard_api_v1_dashboard_get",
         "parameters": [
           {
@@ -39,6 +39,43 @@
                 }
               ],
               "title": "Dsba Source Id"
+            }
+          },
+          {
+            "name": "data_source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "live",
+                "fake"
+              ],
+              "type": "string",
+              "default": "live",
+              "title": "Data Source"
+            }
+          },
+          {
+            "name": "available_minutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 720,
+              "minimum": 0,
+              "default": 120,
+              "title": "Available Minutes"
+            }
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4000,
+              "default": "",
+              "title": "Completed"
             }
           }
         ],
@@ -1608,6 +1645,18 @@
               }
             ],
             "title": "Deadline Changed"
+          },
+          "previous_due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Due At"
           }
         },
         "type": "object",
