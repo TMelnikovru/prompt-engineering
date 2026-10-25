@@ -9,12 +9,17 @@ export class ApiError extends Error {
   }
 }
 
-export async function fetchDashboard(scenario = "default", dsbaSourceId = null) {
+export async function fetchDashboard(scenario = "default", dsbaSourceId = null, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const query = new URLSearchParams({ scenario });
     if (dsbaSourceId) query.set("dsba_source_id", dsbaSourceId);
+    if (options.dataSource === "fake") {
+      query.set("data_source", "fake");
+      query.set("available_minutes", String(options.availableMinutes ?? 120));
+      query.set("completed", (options.completed || []).filter((id) => id.startsWith("fake-")).join(","));
+    }
     const response = await fetch("/api/v1/dashboard?" + query, {
       signal: controller.signal,
       headers: { Accept: "application/json" },

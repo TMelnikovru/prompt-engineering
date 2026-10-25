@@ -138,14 +138,28 @@ def get_fake_dashboard(
         ),
         Task(
             id=prefix + "questions",
-            title="Уточнить формат защиты проекта",
+            title="Уточнить срок защиты проекта",
             course="Программный проект",
             priority="medium",
             estimated_minutes=15,
             due_requires_confirmation=True,
             evidence=evidence(
-                "project", "Учебный пример: формат и срок защиты ещё нужно уточнить."
-            ),
+                "project",
+                "Учебный пример, первая версия: защита "
+                f"{today + timedelta(days=2):%d.%m.%Y}, время не указано.",
+            )
+            + [
+                Evidence(
+                    source_id="fake",
+                    title="Фейк-данные · противоречащая версия",
+                    quote="Учебный пример, вторая версия без пояснения о переносе: защита "
+                    f"{today + timedelta(days=3):%d.%m.%Y}, время не указано.",
+                    url="/demo/materials/project",
+                    published_at=moment(-1, 12),
+                    fetched_at=now,
+                    external_id=prefix + "project-conflict",
+                )
+            ],
         ),
         Task(
             id=prefix + "done",
