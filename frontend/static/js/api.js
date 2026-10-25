@@ -66,3 +66,23 @@ export const syncDsba = (selection) => dsbaRequest("/api/v1/integrations/dsba/sy
 export const fetchDocuments = (sourceId) => dsbaRequest(
   "/api/v1/documents?" + new URLSearchParams({ source_id: sourceId, limit: "100" }),
 );
+
+export async function fetchSummary() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch("/api/v1/knowledge/summary", {
+      signal: controller.signal, headers: { Accept: "application/json" },
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new ApiError(body.error?.message || "Сводка недоступна.", response.status, response.status >= 500);
+    }
+    return body;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("Не получилось связаться с сервером. Проверь интернет.");
+  } finally {
+    clearTimeout(timeout);
+  }
+}

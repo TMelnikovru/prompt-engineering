@@ -1,4 +1,4 @@
-import { fetchDashboard } from "./api.js";
+import { fetchDashboard, fetchSummary } from "./api.js";
 import { sourceStatusLabel, sourceNeedsAttention } from "./source-status.js";
 import { savedDsbaSelection, setupDsba } from "./dsba.js";
 
@@ -6,7 +6,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const STORE = "hse-agent:";
-const MAIN_VIEWS = ["today", "tasks", "materials", "grades", "settings", "sources", "account"];
+const MAIN_VIEWS = ["today", "tasks", "materials", "summary", "grades", "fkn", "settings", "sources", "account"];
 const priorityLabels = { high: "высокий", medium: "средний", low: "низкий" };
 
 const state = {
@@ -808,6 +808,49 @@ document.addEventListener("click", (event) => {
   }, animate() ? 450 : 0);
 });
 
+/* ---------- Сводка: ИИ-сводка учебных страниц из бэкенда ---------- */
+let summaryLoaded = false;
+
+async function loadSummary() {
+  const panel = $("#summary-panel");
+  const button = $("#summary-refresh");
+  button.disabled = true;
+  panel.replaceChildren(node("p", "settings-hint", "Загружаем сводку…"));
+  try {
+    const body = await fetchSummary();
+    summaryLoaded = true;
+    const summary = body.summary;
+    if (!summary) {
+      panel.replaceChildren(emptyBlock("Сводки пока нет", "Агент составит её, когда прочитает и разберёт учебные страницы."));
+      return;
+    }
+    const highlights = node("ul", "summary-points");
+    highlights.append(...(summary.highlights || []).map((point) => {
+      const item = node("li");
+      const count = point.document_ids?.length || 0;
+      item.append(node("p", "", point.text), node("span", "chip", count + " " + plural(count, "источник", "источника", "источников")));
+      return item;
+    }));
+    const meta = node("p", "settings-hint", "Составлено " + dayMonth(dateKey(body.created_at)) + ", " + clock(body.created_at)
+      + " · модель " + body.model + ". Это пересказ агента, проверяй сроки в источниках.");
+    panel.replaceChildren(node("p", "summary-text", summary.summary), highlights, meta);
+    stagger($$("#summary-panel .summary-points li"));
+  } catch (error) {
+    const title = error.status === 503 ? "Сводка пока недоступна" : "Не получилось загрузить сводку";
+    panel.replaceChildren(emptyBlock(title, error.message));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function emptyBlock(title, text) {
+  const block = node("div", "empty-state");
+  block.append(node("strong", "", title), node("p", "", text));
+  return block;
+}
+
+$("#summary-refresh").addEventListener("click", loadSummary);
+
 /* ---------- Источники ---------- */
 function renderSources() {
   const { sources } = state.dashboard;
@@ -892,6 +935,7 @@ function showView({ focus = true } = {}) {
   if (name === state.view) return;
   const first = state.view === null;
   state.view = name;
+  if (name === "summary" && !summaryLoaded) loadSummary();
   if (!first && animate() && document.startViewTransition) {
     document.startViewTransition(() => applyView(name));
   } else {

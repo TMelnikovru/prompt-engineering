@@ -548,7 +548,9 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
     box-shadow: 0 -8px 24px -16px rgb(19 40 92 / 25%);
   }
   .nav-wrap { margin: 0; padding: 0; overflow: visible; }
-  .nav-group { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; width: 100%; }
+  .nav-group { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(68px, 1fr); gap: 2px; width: 100%; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .nav-group::-webkit-scrollbar { display: none; }
+  .nav-group .nav-link { scroll-snap-align: start; }
   .nav-group .nav-link { flex-direction: column; justify-content: center; gap: 2px; min-height: 52px; padding: 4px 2px; font-size: 11px; position: relative; }
   .nav-group .nav-count { position: absolute; top: 4px; right: calc(50% - 22px); margin: 0; font-size: 11px; }
   .nav-group .nav-alert { position: absolute; top: 6px; right: calc(50% - 16px); margin: 0; }
@@ -701,3 +703,31 @@ mark { background: #ffe7a3; color: inherit; border-radius: 3px; padding: 0 1px; 
 .select-wrap { min-width: 0; max-width: 100%; }
 @media (max-width: 860px) { .toolbar .select-wrap { width: 100%; } .toolbar .select { flex: 1; width: 100%; } }
 @media (max-width: 860px) { .toolbar .segmented { max-width: 100%; width: 100%; } }
+
+/* ---------- Сводка ---------- */
+.summary-panel { max-width: 860px; }
+.summary-text { font-size: 18px; line-height: 1.55; }
+.summary-points { display: flex; flex-direction: column; gap: 10px; }
+.summary-points li { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 16px; padding: 14px 16px; border-radius: var(--radius-md); background: var(--sky-50); }
+.summary-points p { flex: 1 1 280px; }
+
+/* ---------- Путеводитель ФКН ---------- */
+.guide-next {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 18px 22px;
+  border-radius: var(--radius-lg); background: var(--navy-900); color: #fff;
+}
+.guide-next .eyebrow { color: var(--cyan-500); }
+.guide-next strong { font-size: 18px; font-weight: 700; flex: 1 1 260px; }
+.guide-next .guide-link { color: #fff; }
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 16px; }
+.guide-card {
+  display: flex; flex-direction: column; gap: 14px; padding: 22px 24px; border-radius: var(--radius-lg);
+  background: var(--surface); box-shadow: var(--shadow); transition: transform .3s var(--ease-out), box-shadow .3s;
+}
+.guide-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.guide-title { font-size: 20px; font-weight: 700; }
+.guide-card .soon-points { flex: 1; font-size: 15px; }
+.guide-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.guide-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; text-decoration: none; }
+.guide-link:hover { text-decoration: underline; }
+.guide-link .icon { width: 14px; height: 14px; }
