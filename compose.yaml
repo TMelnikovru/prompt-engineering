@@ -1,0 +1,64 @@
+name: hse-study-agent
+
+services:
+  app:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${HSE_BIND_HOST:-127.0.0.1}:${HSE_PORT:-8000}:8000"
+    environment:
+      HSE_DEMO_MODE: ${HSE_DEMO_MODE:-false}
+      HSE_TIMEZONE: ${HSE_TIMEZONE:-Europe/Moscow}
+      HSE_DATABASE_URL: ${HSE_DATABASE_URL:-}
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-hse_study_agent}
+      PGUSER: ${POSTGRES_USER:-hse_agent}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env}
+      PGCONNECT_TIMEOUT: "5"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hse_study_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-hse_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  postgres_data:

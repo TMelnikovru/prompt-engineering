@@ -18,6 +18,10 @@ markupsafe==3.0.4
     # via jinja2
 opentelemetry-api==1.45.1
     # via fastapi
+psycopg==3.3.6
+    # via hse-study-agent
+psycopg-binary==3.3.6 ; implementation_name != 'pypy'
+    # via psycopg
 pydantic==2.14.1
     # via
     #   fastapi
@@ -35,6 +39,7 @@ typing-extensions==4.16.0
     #   anyio
     #   fastapi
     #   opentelemetry-api
+    #   psycopg
     #   pydantic
     #   pydantic-core
     #   pydantic-settings
@@ -46,6 +51,8 @@ typing-inspection==0.4.4
     #   pydantic
     #   pydantic-settings
 tzdata==2026.5
-    # via hse-study-agent
+    # via
+    #   hse-study-agent
+    #   psycopg
 uvicorn==0.54.0
     # via hse-study-agent

@@ -18,3 +18,9 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest
       - run: uv run python -m scripts.export_openapi --check
+      - name: Validate deployment files
+        env:
+          POSTGRES_PASSWORD: ci-validation-only
+        run: |
+          bash -n deploy/prepare.sh deploy/deploy.sh deploy/install-cron.sh
+          docker compose config --quiet
