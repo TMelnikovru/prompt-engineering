@@ -29,7 +29,9 @@ fi
 
 release="$deploy_root/releases/$revision"
 mkdir -p "$release"
-git -C "$deploy_root/repository" archive "$revision" | tar -x -C "$release"
+# Source files must remain readable by the image's non-root application user.
+# The outer deployment directory stays private (0700).
+git -C "$deploy_root/repository" archive "$revision" | (umask 022; tar -x -C "$release")
 
 compose_for() {
     local commit="$1"
