@@ -627,6 +627,13 @@
           },
           "plan": {
             "$ref": "#/components/schemas/DayPlan"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/Material"
+            },
+            "type": "array",
+            "title": "Materials"
           }
         },
         "type": "object",
@@ -1181,6 +1188,45 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Material": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "course": {
+            "type": "string",
+            "title": "Course"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "course",
+          "source_id",
+          "url",
+          "fetched_at"
+        ],
+        "title": "Material"
       },
       "PlanBlock": {
         "properties": {

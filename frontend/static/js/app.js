@@ -6,40 +6,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const STORE = "hse-agent:";
-const MAIN_VIEWS = ["today", "tasks", "sources", "settings"];
-const SOON = {
-  calendar: {
-    title: "Календарь",
-    lead: "Расписание пар и нагрузка по дням в виде недели. Данные РУЗ агент читает уже в MVP.",
-    points: ["Пары, дедлайны и свободные окна на одной шкале", "Тяжёлые недели видно заранее"],
-  },
-  events: {
-    title: "Мероприятия",
-    lead: "Студенческие события, на которые хватает времени между дедлайнами.",
-    points: ["События факультета и университета", "Подсказка, когда на событие есть время"],
-  },
-  clubs: {
-    title: "Клубы и кружки",
-    lead: "Поиск студенческих сообществ по интересам.",
-    points: ["Клубы, кружки и проектные команды", "Встречи в календаре рядом с учёбой"],
-  },
-  minors: {
-    title: "Майноры",
-    lead: "Майноры и образовательная траектория: требования программ и твои интересы.",
-    points: ["Проверяемые требования программ", "Сравнение майноров по нагрузке и темам"],
-  },
-  tutor: {
-    title: "ИИ-репетитор",
-    lead: "Объяснения и разбор учебных материалов. Команда возьмётся за него после основного сценария: задания → сроки → план.",
-    points: ["Разбор задач по материалам курса", "Ссылка на источник у каждого объяснения"],
-  },
-  account: {
-    title: "Аккаунт",
-    lead: "Вход, подключённые аккаунты и твои данные.",
-    points: ["Вход и первое подключение источников", "Выбор курсов и Telegram-чатов"],
-    badge: "Скоро",
-  },
-};
+const MAIN_VIEWS = ["today", "tasks", "materials", "grades", "settings", "sources", "account"];
 const priorityLabels = { high: "высокий", medium: "средний", low: "низкий" };
 
 const state = {
@@ -47,6 +14,7 @@ const state = {
   dsbaSourceId: savedDsbaSelection()?.source_id || null,
   filter: "all",
   course: "",
+  materials: { query: "", course: "", today: false },
   view: null,
   loading: false,
   changes: load("changes", {}),
@@ -499,9 +467,7 @@ function duePanel(task) {
   }
   value.append(node("strong", "due-new", deadlineText(task, { long: true })));
   panel.append(value);
-  const zone = due.kind === "exact"
-    ? "Время: " + tz() + ", " + zoneOffset()
-    : due.kind === "date" ? "Источник указал дату без времени" : "";
+  const zone = due.kind === "date" ? "Источник указал дату без времени" : "";
   const noticed = change ? "агент заметил перенос в " + clock(change.at) : "";
   const line = [zone, noticed].filter(Boolean).join(" · ");
   if (line) panel.append(node("span", "due-zone", line));
@@ -684,6 +650,164 @@ function renderTasks() {
     : "Агент покажет их после первых сообщений из источников.";
 }
 
+/* ---------- Материалы: библиотека выбранной группы и ссылки из заданий ---------- */
+function collectMaterials() {
+  const { tasks, plan } = state.dashboard;
+  const planned = new Set(plan.blocks.map((block) => block.task_id));
+  const byKey = new Map();
+  for (const material of state.dashboard.materials || []) {
+    byKey.set(material.course + "::" + material.title, { ...material, tasks: [], today: false });
+  }
+  for (const task of tasks) {
+    for (const title of task.materials) {
+      const key = task.course + "::" + title;
+      if (!byKey.has(key)) byKey.set(key, { title, course: task.course, tasks: [], today: false });
+      const entry = byKey.get(key);
+      entry.tasks.push(task);
+      if (!isDone(task) && (planned.has(task.id) || isToday(task))) entry.today = true;
+    }
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.course.localeCompare(b.course, "ru") || Number(b.today) - Number(a.today) || a.title.localeCompare(b.title, "ru"));
+}
+
+function highlight(text, query) {
+  const fragment = document.createDocumentFragment();
+  const index = query ? text.toLowerCase().indexOf(query) : -1;
+  if (index < 0) { fragment.append(text); return fragment; }
+  fragment.append(text.slice(0, index), node("mark", "", text.slice(index, index + query.length)), text.slice(index + query.length));
+  return fragment;
+}
+
+function materialCard(entry, query) {
+  const item = node("li", "material-card");
+  if (entry.today) item.classList.add("is-today");
+  const mark = node("span", "material-icon");
+  mark.setAttribute("aria-hidden", "true");
+  mark.append(icon("doc"));
+  const body = node("div", "material-body");
+  let sourceUrl = null;
+  try {
+    const url = new URL(entry.url || entry.title, location.origin);
+    if (entry.url && ["http:", "https:"].includes(url.protocol)) sourceUrl = url.href;
+    else if (/^https?:\/\//i.test(entry.title) && ["http:", "https:"].includes(url.protocol)) sourceUrl = url.href;
+  } catch { /* The title remains readable if a source link is invalid. */ }
+  const title = node(sourceUrl ? "a" : "strong", "material-title");
+  if (sourceUrl) {
+    title.href = sourceUrl;
+    title.target = "_blank";
+    title.rel = "noopener noreferrer";
+  }
+  title.append(highlight(entry.title, query));
+  body.append(title);
+  if (entry.today) body.append(node("span", "chip chip-today material-badge", "нужно сегодня"));
+  const links = node("span", "material-tasks");
+  links.append("К заданию: ");
+  entry.tasks.forEach((task, index) => {
+    if (index) links.append(", ");
+    const link = node("a", "");
+    link.href = "#tasks";
+    link.dataset.openTask = task.id;
+    link.append(highlight(task.title, query));
+    links.append(link);
+  });
+  const first = [...entry.tasks].sort(compareTasks)[0];
+  const sources = [...new Set([
+    ...entry.tasks.flatMap((task) => task.evidence.map((item) => sourceName(item.source_id))),
+    ...(entry.source_id ? [sourceName(entry.source_id)] : []),
+  ])];
+  const meta = node("span", "material-meta", [first ? deadlineText(first) : null, ...sources].filter(Boolean).join(" · "));
+  if (entry.tasks.length) body.append(links);
+  body.append(meta);
+  item.append(mark, body);
+  return item;
+}
+
+function renderMaterials() {
+  const all = collectMaterials();
+  const filters = state.materials;
+  const query = filters.query.trim().toLowerCase();
+  const select = $("#materials-course");
+  const courses = [...new Set(all.map((entry) => entry.course))];
+  if (filters.course && !courses.includes(filters.course)) filters.course = "";
+  const any = node("option", "", "Все курсы");
+  any.value = "";
+  select.replaceChildren(any, ...courses.map((course) => {
+    const option = node("option", "", course);
+    option.value = course;
+    return option;
+  }));
+  select.value = filters.course;
+  const todayCount = all.filter((entry) => entry.today).length;
+  $("#materials-today-count").textContent = todayCount ? String(todayCount) : "";
+  $("#materials-today").setAttribute("aria-pressed", String(filters.today));
+
+  const visible = all.filter((entry) => {
+    if (filters.course && entry.course !== filters.course) return false;
+    if (filters.today && !entry.today) return false;
+    if (!query) return true;
+    return [entry.title, entry.course, ...entry.tasks.map((task) => task.title)].some((text) => text.toLowerCase().includes(query));
+  });
+  const groups = new Map();
+  for (const entry of visible) {
+    if (!groups.has(entry.course)) groups.set(entry.course, []);
+    groups.get(entry.course).push(entry);
+  }
+  $("#materials-list").replaceChildren(...[...groups].map(([course, entries]) => {
+    const group = node("section", "material-group");
+    const heading = node("div", "material-group-head");
+    const name = node("h2", "material-course");
+    name.append(highlight(course, query));
+    heading.append(name, node("span", "nav-count", String(entries.length)));
+    const list = node("ul", "material-cards");
+    list.append(...entries.map((entry) => materialCard(entry, query)));
+    group.append(heading, list);
+    return group;
+  }));
+  stagger($$("#materials-list .material-group"));
+  const empty = !visible.length;
+  $("#materials-empty").hidden = !empty;
+  if (empty) {
+    $("#materials-empty-title").textContent = all.length ? "Ничего не нашлось" : "Материалов пока нет";
+    $("#materials-empty-text").textContent = all.length
+      ? "Попробуй другое слово или сбрось фильтры."
+      : "Подключи свою группу DSBA в разделе «Источники». Здесь появятся её материалы и ссылки из заданий.";
+  }
+}
+
+$("#materials-search").addEventListener("input", (event) => {
+  state.materials.query = event.target.value;
+  renderMaterials();
+});
+$("#materials-course").addEventListener("change", (event) => {
+  state.materials.course = event.target.value;
+  renderMaterials();
+});
+$("#materials-today").addEventListener("click", () => {
+  state.materials.today = !state.materials.today;
+  renderMaterials();
+});
+
+/* Переход из материала к его заданию: фильтры сбрасываются, карточка раскрывается. */
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("[data-open-task]");
+  if (!link) return;
+  event.preventDefault();
+  const id = link.dataset.openTask;
+  state.filter = "all";
+  state.course = "";
+  $$("[data-filter]").forEach((item) => item.setAttribute("aria-pressed", String(item.dataset.filter === "all")));
+  renderTasks();
+  location.hash = "tasks";
+  setTimeout(() => {
+    const card = $(`#task-list [data-key="${CSS.escape(id)}"]`);
+    if (!card) return;
+    $("details", card).open = true;
+    card.scrollIntoView({ block: "center", behavior: animate() ? "smooth" : "auto" });
+    card.animate([{ boxShadow: "0 0 0 4px rgb(112 86 172 / 40%)" }, { boxShadow: "0 0 0 0 rgb(112 86 172 / 0%)" }], { duration: 1600 });
+  }, animate() ? 450 : 0);
+});
+
 /* ---------- Источники ---------- */
 function renderSources() {
   const { sources } = state.dashboard;
@@ -751,31 +875,20 @@ function moveIndicator() {
   indicator.style.transform = `translateY(${rect.top - wrap.top}px)`;
 }
 
-function renderSoon(name) {
-  const config = SOON[name];
-  $("#soon-badge").textContent = config.badge || "После MVP";
-  $("#soon-title").textContent = config.title;
-  $("#soon-lead").textContent = config.lead;
-  $("#soon-points").replaceChildren(...config.points.map((point) => node("li", "", point)));
-  stagger($$("#view-soon .soon-pattern polygon"));
-}
-
 function applyView(name) {
-  const section = SOON[name] ? "soon" : name;
-  if (SOON[name]) renderSoon(name);
-  for (const view of $$("[data-view]")) view.hidden = view.dataset.view !== section || !state.dashboard;
+  for (const view of $$("[data-view]")) view.hidden = view.dataset.view !== name || !state.dashboard;
   $$("[data-nav]").forEach((link) => {
     if (link.dataset.nav === name) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
-  const current = $(`[data-view="${section}"]`);
+  const current = $(`[data-view="${name}"]`);
   if (state.dashboard) stagger([...current.children]);
   moveIndicator();
 }
 
 function showView({ focus = true } = {}) {
   const requested = location.hash.slice(1);
-  const name = MAIN_VIEWS.includes(requested) || SOON[requested] ? requested : "today";
+  const name = MAIN_VIEWS.includes(requested) ? requested : "today";
   if (name === state.view) return;
   const first = state.view === null;
   state.view = name;
@@ -785,7 +898,7 @@ function showView({ focus = true } = {}) {
     applyView(name);
   }
   if (focus && !first) {
-    $(`[data-view="${SOON[name] ? "soon" : name}"]`)?.focus({ preventScroll: true });
+    $(`[data-view="${name}"]`)?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: animate() ? "smooth" : "auto" });
   }
 }
@@ -800,7 +913,6 @@ function renderMeta() {
   $("#mode-notice-text").textContent = meta.notice;
   $("#mode-notice").hidden = !meta.notice;
   $("#nav-task-count").textContent = String(tasks.filter((task) => !isDone(task)).length);
-  $("#updated-at").textContent = "Ответ сервера в " + clock(meta.generated_at) + " · " + meta.timezone;
 }
 
 function renderAll() {
@@ -811,6 +923,7 @@ function renderAll() {
   renderStrip();
   renderCourses();
   renderTasks();
+  renderMaterials();
   renderSources();
   renderSettings();
 }
@@ -820,13 +933,62 @@ function setSync(stateName, text) {
   $("#sync-text").textContent = text;
 }
 
+/* ---------- Вход: ФИО и группа, только в этом браузере ---------- */
+function renderProfile() {
+  const profile = load("profile", null);
+  $("#account-name").textContent = profile ? profile.name.split(" ").slice(0, 2).join(" ") : "Аккаунт";
+  $("#account-group").textContent = profile ? "группа " + profile.group : "вход и данные";
+  $("#account-view-name").textContent = profile?.name || "—";
+  $("#account-view-group").textContent = profile?.group || "—";
+  const avatar = $("#account-avatar");
+  if (profile) avatar.textContent = profile.name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  else avatar.replaceChildren(icon("account"));
+}
+
+function openSignup() {
+  if (load("profile", null) || $("#signup").open) return;
+  $("#signup-error").hidden = true;
+  $("#signup").showModal();
+  setTimeout(() => $("#signup-name").focus(), animate() ? 350 : 0);
+}
+
+$("#signup").addEventListener("cancel", (event) => event.preventDefault());
+$("#signup-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = $("#signup-name").value.trim().replace(/\s+/g, " ");
+  const group = $("#signup-group").value.replace(/\s+/g, "").toUpperCase();
+  const error = $("#signup-error");
+  if (name.split(" ").length < 2) {
+    error.textContent = "Напиши фамилию и имя, можно с отчеством.";
+  } else if (!group) {
+    error.textContent = "Напиши номер группы.";
+  } else {
+    error.hidden = true;
+    save("profile", { name, group });
+    renderProfile();
+    const dialog = $("#signup");
+    dialog.classList.add("is-closing");
+    setTimeout(() => { dialog.close(); dialog.classList.remove("is-closing"); }, animate() ? 280 : 0);
+    toast("Привет, " + name.split(" ")[1] + "!", "Группа " + group + ". Связь Вааааась.");
+    return;
+  }
+  error.hidden = false;
+});
+$("#logout-button").addEventListener("click", () => {
+  try { localStorage.removeItem(STORE + "profile"); } catch { /* приватный режим */ }
+  $("#signup-form").reset();
+  renderProfile();
+  openSignup();
+});
+renderProfile();
+
 function hideSplash() {
   const splash = $("#splash");
   if (splash.classList.contains("is-done")) return;
   const wait = animate() ? Math.max(0, 1300 - (performance.now() - splashStarted)) : 0;
   setTimeout(() => {
     splash.classList.add("is-done");
-    setTimeout(() => { splash.hidden = true; }, animate() ? 900 : 0);
+    setTimeout(() => { splash.hidden = true; openSignup(); }, animate() ? 900 : 0);
   }, wait);
 }
 

@@ -108,6 +108,14 @@ def test_frontend_selection_versions_outage_deletions_and_worker(dsba_database_u
             ).json()
 
         assert api.get("/api/v1/dashboard").json()["tasks"] == []
+        assert api.get("/api/v1/dashboard").json()["materials"] == []
+        materials = dashboard(first)["materials"]
+        assert len(materials) == 1
+        assert materials[0]["title"] == "Лекция 1"
+        assert materials[0]["course"] == "C++"
+        assert materials[0]["source_id"] == first.source_id
+        assert materials[0]["fetched_at"]
+        assert materials[0]["id"] != dashboard(second)["materials"][0]["id"]
         tasks = dashboard(first)["tasks"]
         assert len(tasks) == 3
         assert all(
@@ -136,6 +144,7 @@ def test_frontend_selection_versions_outage_deletions_and_worker(dsba_database_u
         partial = db_run(lambda db: sync_dsba(db, settings, first, force=True))
         assert partial["status"] == "partial"
         assert len(dashboard(first)["tasks"]) == 3
+        assert dashboard(first)["materials"] == materials
         source = next(s for s in api.get("/api/v1/sources").json() if s["id"] == first.source_id)
         assert source["status"] == "partial"
         last_success = source["last_synced_at"]
@@ -147,9 +156,16 @@ def test_frontend_selection_versions_outage_deletions_and_worker(dsba_database_u
         assert source["status"] == "stale" and source["last_synced_at"] == last_success
         assert len(dashboard(first)["tasks"]) == 3
 
+        control(mode="no-materials")
+        assert db_run(lambda db: sync_dsba(db, settings, first, force=True))["status"] == "success"
+        assert dashboard(first)["materials"] == []
+        assert api.get("/api/v1/documents/" + materials[0]["id"]).json()["is_active"] is False
+        assert len(dashboard(second)["materials"]) == 1
+
         control(mode="deleted")
         assert db_run(lambda db: sync_dsba(db, settings, first, force=True))["status"] == "success"
         assert dashboard(first)["tasks"] == []
+        assert len(dashboard(first)["materials"]) == 1
         assert len(dashboard(second)["tasks"]) == 3
         assert (
             api.get("/api/v1/documents", params={"source_id": first.source_id}).json()["total"] == 1

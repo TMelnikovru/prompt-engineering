@@ -6,10 +6,26 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
+from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+
+
+def test_merged_frontend_views_and_required_elements_exist():
+    with TestClient(create_app(Settings(_env_file=None))) as api:
+        html = BeautifulSoup(api.get("/").text, "html.parser")
+        ids = [element["id"] for element in html.select("[id]")]
+        assert len(ids) == len(set(ids)), "Merge must not duplicate form/view IDs"
+        app_js = api.get("/static/js/app.js").text
+        views = json.loads(re.search(r"const MAIN_VIEWS = (\[.*?\]);", app_js)[1])
+        assert set(views) <= {element["data-view"] for element in html.select("[data-view]")}
+        assert {element["data-nav"] for element in html.select("[data-nav]")} <= set(views)
+        for path in ("app.js", "dsba.js"):
+            js = api.get("/static/js/" + path).text
+            selectors = re.findall(r'(?:\$|querySelector)\("#([\w-]+)"\)', js)
+            assert set(selectors) <= set(ids), set(selectors) - set(ids)
 
 
 def test_frontend_modules_and_preloaded_fonts_resolve_after_merge():

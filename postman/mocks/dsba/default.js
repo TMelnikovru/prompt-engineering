@@ -49,6 +49,7 @@ const server = http.createServer(async (req, res) => {
     { id: "cpp", name: "C++", wiki: "https://wiki.cs.hse.ru/Test" },
     { id: "calculus", name: "Calculus" },
   ]);
+  if (url.pathname === "/api/materials" && mode === "no-materials") return reply(res, 200, []);
   if (url.pathname === "/api/materials") return reply(res, 200, [
     { id: 53, kind: "lecture", subject_id: "cpp", number: 1, title: null,
       url: "https://example.test/lecture.pdf", ext: "pdf", has_file: 1, source: "wiki",

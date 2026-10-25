@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import __version__
 from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
-from app.services.dsba import dsba_tasks
+from app.services.dsba import dsba_materials, dsba_tasks
 from app.services.library import list_sources
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
@@ -71,6 +71,7 @@ async def dashboard(
                         result.sources[index] = Source.model_validate(stored)
             if dsba_source_id:
                 result.tasks = await dsba_tasks(database, dsba_source_id)
+                result.materials = await dsba_materials(database, dsba_source_id)
                 result.plan.note = "Задания получены из DSBA. План дня ещё не рассчитан."
             total = sum(s["document_count"] for s in visible)
             if total or result.tasks or any(s["status"] == "connected" for s in visible):

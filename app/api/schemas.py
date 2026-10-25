@@ -82,11 +82,21 @@ class DashboardMeta(BaseModel):
     notice: str
 
 
+class Material(BaseModel):
+    id: str
+    title: str
+    course: str
+    source_id: str
+    url: str
+    fetched_at: AwareDatetime
+
+
 class Dashboard(BaseModel):
     meta: DashboardMeta
     tasks: list[Task]
     sources: list[Source]
     plan: DayPlan
+    materials: list[Material] = Field(default_factory=list)
 
 
 class ApiErrorDetail(BaseModel):
