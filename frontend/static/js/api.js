@@ -33,7 +33,7 @@ export async function fetchDashboard(scenario = "default", dsbaSourceId = null) 
     throw new ApiError(
       error.name === "AbortError"
         ? "Сервер долго не отвечает. Попробуй ещё раз."
-        : "Не получилось связаться с сервером. Проверь интернет.",
+        : "Не получилось связаться с сервером. Попробуй обновить страницу через минуту.",
     );
   } finally {
     clearTimeout(timeout);
@@ -81,7 +81,7 @@ export async function fetchSummary() {
     return body;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError("Не получилось связаться с сервером. Проверь интернет.");
+    throw new ApiError("Не получилось связаться с сервером. Попробуй обновить страницу через минуту.");
   } finally {
     clearTimeout(timeout);
   }

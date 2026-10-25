@@ -367,13 +367,13 @@ function dateTile(task) {
     tile.append(node("strong", "", "?"));
   } else if (due.day === state.dashboard.plan.date) {
     tile.classList.add("is-today");
-    tile.append(node("strong", "", "СЕГОДНЯ"), node("span", "", due.time || "весь день"));
+    tile.append(node("strong", "", "сегодня"), node("span", "", due.time || "весь день"));
   } else if (daysBetween(state.dashboard.plan.date, due.day) < 0) {
     tile.classList.add("is-overdue");
-    tile.append(node("strong", "", "СРОК"), node("span", "", "прошёл"));
+    tile.append(node("strong", "", "срок"), node("span", "", "прошёл"));
   } else if (daysBetween(state.dashboard.plan.date, due.day) === 1) {
     tile.classList.add("is-tomorrow");
-    tile.append(node("strong", "", "ЗАВТРА"), node("span", "", due.time || "весь день"));
+    tile.append(node("strong", "", "завтра"), node("span", "", due.time || "весь день"));
   } else {
     const [, , day] = due.day.split("-");
     tile.append(node("strong", "", String(Number(day))), node("span", "", dayMonth(due.day).split(" ")[1] || ""));
@@ -925,7 +925,6 @@ function applyView(name) {
     else link.removeAttribute("aria-current");
   });
   const current = $(`[data-view="${name}"]`);
-  if (state.dashboard) stagger([...current.children]);
   moveIndicator();
 }
 
@@ -1013,7 +1012,7 @@ $("#signup-form").addEventListener("submit", (event) => {
     const dialog = $("#signup");
     dialog.classList.add("is-closing");
     setTimeout(() => { dialog.close(); dialog.classList.remove("is-closing"); }, animate() ? 280 : 0);
-    toast("Привет, " + name.split(" ")[1] + "!", "Группа " + group + ". Связь Вааааась.");
+    toast("Привет, " + name.split(" ")[1], "Группа " + group + ". Связь Вааааась.");
     return;
   }
   error.hidden = false;
@@ -1074,27 +1073,39 @@ async function loadDashboard() {
   }
 }
 
-/* ---------- Тема: ВШЭ или «Вкусно и точка» ---------- */
-function currentTheme() {
-  return document.documentElement.dataset.theme === "vit" ? "vit" : "hse";
+/* ---------- Тема: как в системе, светлая или тёмная ---------- */
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function themePreference() {
+  const saved = load("theme", "system");
+  return ["light", "dark"].includes(saved) ? saved : "system";
+}
+
+function effectiveTheme() {
+  const preference = themePreference();
+  if (preference !== "system") return preference;
+  return darkQuery.matches ? "dark" : "light";
 }
 
 function syncThemeControls() {
-  const theme = currentTheme();
-  $("#theme-button").setAttribute("aria-pressed", String(theme === "vit"));
-  $("#theme-button").setAttribute("aria-label", theme === "vit" ? "Вернуть тему ВШЭ" : "Тема «Вкусно и точка»");
-  for (const input of $$("input[name=theme]")) input.checked = input.value === theme;
+  const dark = effectiveTheme() === "dark";
+  const button = $("#theme-button");
+  button.setAttribute("aria-pressed", String(dark));
+  button.setAttribute("aria-label", dark ? "Включить светлую тему" : "Включить тёмную тему");
+  $("use", button).setAttribute("href", "/static/icons.svg#" + (dark ? "sun" : "moon"));
+  for (const input of $$("input[name=theme]")) input.checked = input.value === themePreference();
 }
 
-function setTheme(theme, origin) {
-  if (theme === currentTheme()) return;
+function setTheme(preference, origin) {
+  const before = effectiveTheme();
+  save("theme", preference);
   const apply = () => {
-    if (theme === "vit") document.documentElement.dataset.theme = "vit";
-    else delete document.documentElement.dataset.theme;
+    if (preference === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = preference;
     syncThemeControls();
   };
-  save("theme", theme);
-  if (!animate() || !document.startViewTransition) { apply(); return; }
+  if (before === (preference === "system" ? (darkQuery.matches ? "dark" : "light") : preference)
+      || !animate() || !document.startViewTransition) { apply(); return; }
   const x = origin?.x ?? innerWidth - 60;
   const y = origin?.y ?? 50;
   const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
@@ -1103,14 +1114,14 @@ function setTheme(theme, origin) {
   transition.ready.then(() => {
     document.documentElement.animate(
       { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-      { duration: 750, easing: "cubic-bezier(.65, 0, .35, 1)", pseudoElement: "::view-transition-new(root)" },
+      { duration: 650, easing: "cubic-bezier(.65, 0, .35, 1)", pseudoElement: "::view-transition-new(root)" },
     );
   });
   transition.finished.finally(() => document.documentElement.classList.remove("theme-switching"));
 }
 
 $("#theme-button").addEventListener("click", (event) => {
-  setTheme(currentTheme() === "vit" ? "hse" : "vit", { x: event.clientX, y: event.clientY });
+  setTheme(effectiveTheme() === "dark" ? "light" : "dark", { x: event.clientX, y: event.clientY });
 });
 for (const input of $$("input[name=theme]")) {
   input.addEventListener("change", () => {
@@ -1118,6 +1129,7 @@ for (const input of $$("input[name=theme]")) {
     setTheme(input.value, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
   });
 }
+darkQuery.addEventListener("change", syncThemeControls);
 syncThemeControls();
 
 /* ---------- Ширина меню: перетаскивание, стрелки, двойной клик ---------- */

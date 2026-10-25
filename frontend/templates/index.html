@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#1d4aa8">
   <meta name="description" content="Учебный агент для студентов Вышки: задания, сроки и план дня.">
   <title>Учебный агент · Вышка</title>
@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css').path }}">
   <script type="module" src="{{ url_for('static', path='/js/app.js').path }}"></script>
   <noscript><style>.splash { display: none; }</style></noscript>
-  <script>try { if (localStorage.getItem("hse-agent:theme") === '"vit"') document.documentElement.dataset.theme = "vit"; } catch {}</script>
+  <script>try { const t = JSON.parse(localStorage.getItem("hse-agent:theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
   <a class="skip-link" href="#main">К содержимому</a>
@@ -49,7 +49,6 @@
       <div class="nav-wrap" id="nav-wrap">
         <span class="nav-indicator" id="nav-indicator" aria-hidden="true"></span>
         <nav class="nav-group" aria-label="Учёба">
-          <span class="nav-caption">Учёба</span>
           <a class="nav-link" href="#today" data-nav="today"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#today"></use></svg>Сегодня</a>
           <a class="nav-link" href="#tasks" data-nav="tasks"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#tasks"></use></svg>Задания<span class="nav-count" id="nav-task-count"></span></a>
           <a class="nav-link" href="#materials" data-nav="materials"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#doc"></use></svg>Материалы</a>
@@ -77,8 +76,8 @@
         </div>
         <div class="topbar-actions">
           <span class="sync-state" id="sync-state" data-state="loading" role="status"><span class="sync-dot" aria-hidden="true"></span><span id="sync-text">Ищем связь…</span></span>
-          <button class="button theme-button" id="theme-button" type="button" aria-label="Тема «Вкусно и точка»" aria-pressed="false" title="Сменить тему">
-            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#palette"></use></svg>
+          <button class="button theme-button" id="theme-button" type="button" aria-label="Включить тёмную тему" aria-pressed="false">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#moon"></use></svg>
           </button>
           <button class="button button-primary" id="refresh-button" type="button">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#refresh"></use></svg>
@@ -94,7 +93,6 @@
 
       <div class="views" id="views">
         <section class="load-error" id="load-error" hidden>
-          <span class="eyebrow">Вааась, что-то пошло не так</span>
           <h2>Не получилось загрузить данные</h2>
           <p id="load-error-text"></p>
           <button class="button button-primary" id="retry-button" type="button">Попробовать ещё раз</button>
@@ -258,10 +256,11 @@
             </fieldset>
             <fieldset class="settings-card">
               <legend>Оформление</legend>
-              <p class="settings-hint">Тема меняется сразу и запоминается в этом браузере.</p>
+              <p class="settings-hint">Тема меняется сразу. Браузер её запомнит.</p>
               <div class="choice-row">
-                <label class="choice"><input type="radio" name="theme" value="hse"><span>ВШЭ</span></label>
-                <label class="choice"><input type="radio" name="theme" value="vit"><span>Вкусно и точка</span></label>
+                <label class="choice"><input type="radio" name="theme" value="system"><span>Как в системе</span></label>
+                <label class="choice"><input type="radio" name="theme" value="light"><span>Светлая</span></label>
+                <label class="choice"><input type="radio" name="theme" value="dark"><span>Тёмная</span></label>
               </div>
             </fieldset>
             <fieldset class="settings-card">
