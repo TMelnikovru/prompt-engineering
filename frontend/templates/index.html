@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css').path }}">
   <script type="module" src="{{ url_for('static', path='/js/app.js').path }}"></script>
   <noscript><style>.splash { display: none; }</style></noscript>
+  <script>try { if (localStorage.getItem("hse-agent:theme") === '"vit"') document.documentElement.dataset.theme = "vit"; } catch {}</script>
 </head>
 <body>
   <a class="skip-link" href="#main">К содержимому</a>
@@ -77,7 +78,10 @@
           <time class="today-date" id="today-label"></time>
         </div>
         <div class="topbar-actions">
-          <span class="sync-state" id="sync-state" data-state="loading"><span class="sync-dot" aria-hidden="true"></span><span id="sync-text">Загружаем…</span></span>
+          <span class="sync-state" id="sync-state" data-state="loading" role="status"><span class="sync-dot" aria-hidden="true"></span><span id="sync-text">Ищем связь…</span></span>
+          <button class="button theme-button" id="theme-button" type="button" aria-label="Тема «Вкусно и точка»" aria-pressed="false" title="Сменить тему">
+            <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#palette"></use></svg>
+          </button>
           <button class="button button-primary" id="refresh-button" type="button">
             <svg class="icon" aria-hidden="true"><use href="/static/icons.svg#refresh"></use></svg>
             <span>Обновить план</span>
@@ -246,6 +250,14 @@
                   <option value="60">За час</option>
                 </select>
               </label>
+            </fieldset>
+            <fieldset class="settings-card">
+              <legend>Оформление</legend>
+              <p class="settings-hint">Тема меняется сразу и запоминается в этом браузере.</p>
+              <div class="choice-row">
+                <label class="choice"><input type="radio" name="theme" value="hse"><span>ВШЭ</span></label>
+                <label class="choice"><input type="radio" name="theme" value="vit"><span>Вкусно и точка</span></label>
+              </div>
             </fieldset>
             <fieldset class="settings-card">
               <legend>Обновление и время</legend>

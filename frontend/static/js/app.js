@@ -827,13 +827,13 @@ async function loadDashboard() {
     if (state.view === null) showView({ focus: false });
     else applyView(state.view);
     const { mode, generated_at: generatedAt } = state.dashboard.meta;
-    if (mode === "live") setSync("ok", "Обновлено в " + clock(generatedAt));
-    else if (mode === "demo") setSync("demo", "Учебные примеры · " + clock(generatedAt));
-    else setSync("demo", "Источники не подключены");
+    const suffix = mode === "live" ? "" : mode === "demo" ? " · учебные примеры" : " · источники не подключены";
+    setSync(mode === "live" ? "ok" : "demo", "Связь Вааааась");
+    $("#sync-state").title = "Ответ сервера в " + clock(generatedAt) + suffix;
   } catch (error) {
-    setSync("error", "Не обновилось");
+    setSync("error", "Связь потеряна, Вааась");
     if (state.dashboard) {
-      toast("Не получилось обновить", error.message, "error");
+      toast("Связь потеряна, Вааась", error.message, "error");
     } else {
       $("#load-error-text").textContent = error.message;
       $("#retry-button").hidden = !error.retryable;
@@ -847,6 +847,52 @@ async function loadDashboard() {
     hideSplash();
   }
 }
+
+/* ---------- Тема: ВШЭ или «Вкусно и точка» ---------- */
+function currentTheme() {
+  return document.documentElement.dataset.theme === "vit" ? "vit" : "hse";
+}
+
+function syncThemeControls() {
+  const theme = currentTheme();
+  $("#theme-button").setAttribute("aria-pressed", String(theme === "vit"));
+  $("#theme-button").setAttribute("aria-label", theme === "vit" ? "Вернуть тему ВШЭ" : "Тема «Вкусно и точка»");
+  for (const input of $$("input[name=theme]")) input.checked = input.value === theme;
+}
+
+function setTheme(theme, origin) {
+  if (theme === currentTheme()) return;
+  const apply = () => {
+    if (theme === "vit") document.documentElement.dataset.theme = "vit";
+    else delete document.documentElement.dataset.theme;
+    syncThemeControls();
+  };
+  save("theme", theme);
+  if (!animate() || !document.startViewTransition) { apply(); return; }
+  const x = origin?.x ?? innerWidth - 60;
+  const y = origin?.y ?? 50;
+  const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  document.documentElement.classList.add("theme-switching");
+  const transition = document.startViewTransition(apply);
+  transition.ready.then(() => {
+    document.documentElement.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+      { duration: 750, easing: "cubic-bezier(.65, 0, .35, 1)", pseudoElement: "::view-transition-new(root)" },
+    );
+  });
+  transition.finished.finally(() => document.documentElement.classList.remove("theme-switching"));
+}
+
+$("#theme-button").addEventListener("click", (event) => {
+  setTheme(currentTheme() === "vit" ? "hse" : "vit", { x: event.clientX, y: event.clientY });
+});
+for (const input of $$("input[name=theme]")) {
+  input.addEventListener("change", () => {
+    const rect = input.parentElement.getBoundingClientRect();
+    setTheme(input.value, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+  });
+}
+syncThemeControls();
 
 /* ---------- Ширина меню: перетаскивание, стрелки, двойной клик ---------- */
 const SIDEBAR = { min: 208, max: 380, initial: 264 };
@@ -907,5 +953,10 @@ $("#refresh-button").addEventListener("click", loadDashboard);
 $("#retry-button").addEventListener("click", loadDashboard);
 window.addEventListener("hashchange", () => showView());
 window.addEventListener("resize", moveIndicator);
+window.addEventListener("offline", () => {
+  setSync("error", "Связь потеряна, Вааась");
+  toast("Связь потеряна, Вааась", "Браузер потерял интернет. Данные на экране не обновляются.", "error");
+});
+window.addEventListener("online", loadDashboard);
 document.fonts?.ready.then(moveIndicator);
 loadDashboard();

@@ -541,3 +541,40 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0ms !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+
+/* ---------- Тема «Вкусно и точка»: только палитра, без логотипа ---------- */
+:root[data-theme="vit"] {
+  --navy-900: #1d3b29;
+  --navy-800: #26503a;
+  --navy-700: #2f6247;
+  --blue-600: #c24e00;
+  --blue-700: #a34100;
+  --cyan-500: #ffb21a;
+  --sky-300: #9cc5a1;
+  --sky-200: #d7ead9;
+  --sky-100: #e9f3ea;
+  --sky-50: #f7f4ec;
+  --orange-400: #ff7a2f;
+  --orange-700: #a8471b;
+  --orange-50: #fff1e4;
+  --ink-2: #3c4a40;
+  --muted: #5d6b60;
+  --on-dark-muted: #c9dccb;
+  --line: #e4e0d4;
+  --line-soft: #efebe0;
+  --bg: #f7f4ec;
+}
+:root[data-theme="vit"] .nav-caption { color: #a9c9ad; }
+:root[data-theme="vit"] :is(.hero-pattern, .splash-pattern, .soon-pattern, .brand-mark) :is(polygon, rect):nth-child(1) { fill: #26503a; }
+:root[data-theme="vit"] :is(.hero-pattern, .splash-pattern, .soon-pattern, .brand-mark) :is(polygon, rect):nth-child(2) { fill: #ff7a00; }
+:root[data-theme="vit"] :is(.hero-pattern, .splash-pattern, .soon-pattern, .brand-mark) :is(polygon, rect):nth-child(3) { fill: #f7f4ec; }
+:root[data-theme="vit"] :is(.hero-pattern, .splash-pattern, .soon-pattern, .brand-mark) :is(polygon, rect):nth-child(4) { fill: #ffb21a; }
+:root[data-theme="vit"] :is(.hero-pattern, .splash-pattern, .soon-pattern, .brand-mark) :is(polygon, rect):nth-child(5) { fill: #9cc5a1; }
+:root[data-theme="vit"] :is(.hero-pattern, .splash-pattern, .soon-pattern, .brand-mark) :is(polygon, rect):nth-child(6) { fill: #ff7a2f; }
+
+/* Смена темы: новая палитра раскрывается кругом из точки клика */
+.theme-switching .views { view-transition-name: none; }
+.theme-button { width: 44px; padding: 0; border-color: var(--line); background: var(--surface); color: var(--ink); }
+.theme-button:hover { background: var(--sky-100); }
+.theme-button .icon { width: 20px; height: 20px; stroke-width: 1.8; }
+
