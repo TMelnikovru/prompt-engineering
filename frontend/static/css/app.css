@@ -45,7 +45,7 @@
   --line-soft: #eef2f8;
   --surface: #fff;
   --bg: #f7f7fa;
-  --placeholder: #a3abbd;
+  --placeholder: #687290;
   --mark: #ffe7a3;
   --done-bg: #e6f5ee;
   --done-ink: #17694a;
@@ -59,7 +59,7 @@
   --shadow-lift: 0 2px 4px rgb(15 45 105 / 8%), 0 24px 48px -24px rgb(15 45 105 / 32%);
   --ease-out: cubic-bezier(.22, 1, .36, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
-  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-spring: cubic-bezier(.22, 1, .36, 1);
 
   font-family: "HSE Sans", "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
@@ -164,7 +164,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .sync-state { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
 .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sky-300); }
 .sync-state[data-state="ok"] .sync-dot { background: var(--green-600); }
-.sync-state[data-state="loading"] .sync-dot { background: var(--cyan-500); animation: pulse 1s var(--ease-in-out) infinite; }
+.sync-state[data-state="loading"] .sync-dot { background: var(--cyan-500); }
 .sync-state[data-state="error"] .sync-dot { background: var(--red-600); }
 .sync-state[data-state="demo"] .sync-dot { background: var(--sky-300); }
 
@@ -313,7 +313,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .source-chip span { font-size: 13px; color: var(--muted); }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sky-300); flex-shrink: 0; }
 [data-status="connected"] .status-dot { background: var(--green-600); }
-[data-status="syncing"] .status-dot { background: var(--cyan-500); animation: pulse 1s infinite; }
+[data-status="syncing"] .status-dot { background: var(--cyan-500); }
 [data-status="stale"] .status-dot,
 [data-status="partial"] .status-dot { background: var(--amber-600); }
 [data-status="error"] .status-dot { background: var(--red-600); }
@@ -503,7 +503,6 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 /* ---------- Ключевые кадры ---------- */
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 50% { opacity: .35; } }
 @keyframes view-out { to { opacity: 0; } }
 @keyframes view-in { from { opacity: 0; } }
 @keyframes band-in { from { transform: translateY(105%); } to { transform: none; } }
@@ -514,7 +513,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 @keyframes strike { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes old-out { to { opacity: .55; } }
 @keyframes arrow-in { from { opacity: 0; transform: translateX(-10px); } }
-@keyframes new-in { from { opacity: 0; transform: translateY(60%); filter: blur(4px); } }
+@keyframes new-in { from { opacity: 0; transform: translateY(40%); } }
 @keyframes glow { 0% { box-shadow: 0 0 0 0 rgb(0 80 207 / 0%); } 15% { box-shadow: 0 0 0 6px rgb(0 80 207 / 30%); } 100% { box-shadow: 0 0 0 0 rgb(0 80 207 / 0%); } }
 
 /* ---------- Адаптивность ---------- */
@@ -728,7 +727,7 @@ mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 1
   --line-soft: #222b45;
   --surface: #151c31;
   --bg: #0d1222;
-  --placeholder: #6d7896;
+  --placeholder: #8e99b5;
   --mark: #6b5414;
   --done-bg: #173a2b;
   --done-ink: #8fe0b6;
@@ -769,7 +768,7 @@ mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 1
   --line-soft: #222b45;
   --surface: #151c31;
   --bg: #0d1222;
-  --placeholder: #6d7896;
+  --placeholder: #8e99b5;
   --mark: #6b5414;
   --done-bg: #173a2b;
   --done-ink: #8fe0b6;
