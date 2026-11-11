@@ -4,9 +4,12 @@
 Агент только читает: дедлайны из календаря и курсы, ничего не отправляет и не отмечает.
 """
 
+import base64
 import hashlib
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -24,6 +27,35 @@ class SmartLmsError(Exception):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
+
+
+def launch_url(settings: Settings, passport: str) -> str:
+    """Официальный вход мобильного приложения Moodle: студент входит через ЕЛК сам."""
+    query = urlencode(
+        {"service": "moodle_mobile_app", "passport": passport, "urlscheme": "moodlemobile"}
+    )
+    return settings.smartlms_base_url + "/admin/tool/mobile/launch.php?" + query
+
+
+def token_from_launch(settings: Settings, passport: str, value: str) -> str:
+    """Достать ключ из адреса moodlemobile://token=<base64>, которым Moodle завершает вход.
+
+    Первая часть — md5(адрес сайта + passport): так проверяем, что ответ пришёл
+    именно на наш запрос и от нужного сайта.
+    """
+    match = re.search(r"token=([A-Za-z0-9+/=_-]+)", value.strip())
+    encoded = match.group(1) if match else value.strip()
+    try:
+        decoded = base64.b64decode(encoded + "=" * (-len(encoded) % 4)).decode()
+    except (ValueError, UnicodeDecodeError):
+        raise SmartLmsError("smartlms_bad_launch_token") from None
+    parts = decoded.split(":::")
+    if len(parts) < 2 or not parts[1]:
+        raise SmartLmsError("smartlms_bad_launch_token")
+    expected = hashlib.md5((settings.smartlms_base_url + passport).encode()).hexdigest()
+    if parts[0] != expected:
+        raise SmartLmsError("smartlms_launch_mismatch")
+    return parts[1]
 
 
 class SmartLmsConnector:

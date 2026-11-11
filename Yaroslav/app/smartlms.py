@@ -1,14 +1,24 @@
-"""CLI и серверный воркер SmartLMS: check — проверка ключа без записи в базу,
-sync — один проход, worker — по расписанию."""
+"""CLI и серверный воркер SmartLMS: login — вход через ЕЛК и запись ключа в .env,
+check — проверка ключа без записи в базу, sync — один проход, worker — по расписанию."""
 
 import argparse
 import asyncio
 import json
+import secrets
+import sys
+from pathlib import Path
 
+from pydantic import SecretStr
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
-from app.connectors.smartlms import SmartLmsConnector, SmartLmsError
+from app.connectors.smartlms import (
+    SmartLmsConnector,
+    SmartLmsError,
+    launch_url,
+    token_from_launch,
+)
+from app.connectors.yandex_oauth import write_env_value
 from app.db.session import Database
 from app.ingest import stage_error
 from app.services.ingestion import SyncBusy
@@ -17,6 +27,32 @@ from app.services.smartlms import sync_smartlms
 
 def emit(value):
     print(json.dumps(value, ensure_ascii=False, default=str), flush=True)
+
+
+async def login(settings: Settings, env_file: Path) -> int:
+    """Вход как у мобильного приложения: ЕЛК в браузере, ключ сразу в .env."""
+    passport = secrets.token_hex(8)
+    print(
+        "1. Откройте в Chrome новую вкладку и нажмите F12 → вкладка Console.\n"
+        "2. В этой же вкладке откройте ссылку и войдите через ЕЛК:\n"
+        + launch_url(settings, passport)
+        + "\n3. После входа страница останется пустой, а в Console появится строка\n"
+        "   Failed to launch 'moodlemobile://token=…'. Скопируйте её целиком и вставьте сюда.",
+        file=sys.stderr,
+        flush=True,
+    )
+    value = await asyncio.to_thread(input, "Строка: ")
+    try:
+        token = token_from_launch(settings, passport, value)
+        checked = settings.model_copy(update={"smartlms_token": SecretStr(token)})
+        async with SmartLmsConnector(checked) as connector:
+            info = await connector.site_info()
+    except SmartLmsError as exc:
+        emit({"error": exc.code})
+        return 2
+    write_env_value(env_file, "HSE_SMARTLMS_TOKEN", token)
+    emit({"saved_to": str(env_file), "site": info.get("sitename"), "user": info.get("fullname")})
+    return 0
 
 
 async def check(settings: Settings) -> int:
@@ -55,6 +91,8 @@ async def cycle(database: Database, settings: Settings) -> dict:
 
 async def execute(args) -> int:
     settings = Settings()
+    if args.command == "login":
+        return await login(settings, Path(args.env_file))
     if args.command == "check":
         return await check(settings)
     if settings.database_url is None:
@@ -92,6 +130,8 @@ async def execute(args) -> int:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    login_command = commands.add_parser("login")
+    login_command.add_argument("--env-file", default=".env")
     for name in ("check", "sync", "worker"):
         commands.add_parser(name)
     try:

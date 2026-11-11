@@ -1,11 +1,19 @@
 import asyncio
+import base64
+import hashlib
 from datetime import UTC, datetime
 
 import httpx
 import pytest
 
 from app.config import Settings
-from app.connectors.smartlms import PAGE_SIZE, SmartLmsConnector, SmartLmsError
+from app.connectors.smartlms import (
+    PAGE_SIZE,
+    SmartLmsConnector,
+    SmartLmsError,
+    launch_url,
+    token_from_launch,
+)
 from app.services.source_catalog import source_error_message
 
 NOW = datetime(2026, 11, 11, 9, 0, tzinfo=UTC)
@@ -122,4 +130,22 @@ def test_missing_token_is_reported_to_user():
     with pytest.raises(SmartLmsError) as error:
         SmartLmsConnector(Settings(_env_file=None))
     assert error.value.code == "smartlms_not_configured"
-    assert "Ключи безопасности" in source_error_message("smartlms_auth_failed")
+    assert "app.smartlms login" in source_error_message("smartlms_auth_failed")
+
+
+def test_mobile_launch_login_extracts_and_verifies_token():
+    settings = Settings(_env_file=None)
+    url = launch_url(settings, "abc123")
+    assert url.startswith("https://edu.hse.ru/admin/tool/mobile/launch.php?")
+    assert "service=moodle_mobile_app" in url and "passport=abc123" in url
+    site_hash = hashlib.md5(b"https://edu.hse.ru" + b"abc123").hexdigest()
+    encoded = base64.b64encode(f"{site_hash}:::tok42:::private".encode()).decode()
+    console = f"Failed to launch 'moodlemobile://token={encoded}' because the scheme"
+    assert token_from_launch(settings, "abc123", console) == "tok42"
+    assert token_from_launch(settings, "abc123", encoded.rstrip("=")) == "tok42"
+    with pytest.raises(SmartLmsError) as error:
+        token_from_launch(settings, "other-passport", console)
+    assert error.value.code == "smartlms_launch_mismatch"
+    with pytest.raises(SmartLmsError) as error:
+        token_from_launch(settings, "abc123", "garbage!!")
+    assert error.value.code == "smartlms_bad_launch_token"
