@@ -35,7 +35,11 @@ async def analyze_pending(database: Database, settings: Settings, limit: int) ->
                 select(SourceDocument.id, DocumentVersion.id, DocumentVersion.content_hash)
                 .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
                 .join(IngestionSource, SourceDocument.source_id == IngestionSource.id)
-                .where(IngestionSource.kind != "dsba", SourceDocument.is_active.is_(True))
+                .where(
+                    # Структурированные дедлайны DSBA и SmartLMS модели не нужны.
+                    IngestionSource.kind.not_in(["dsba", "smartlms"]),
+                    SourceDocument.is_active.is_(True),
+                )
                 .order_by(SourceDocument.title, SourceDocument.id)
             )
         ).all()

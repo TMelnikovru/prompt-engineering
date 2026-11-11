@@ -21,6 +21,10 @@ def source_description(kind: str) -> str:
 def source_error_message(code: str | None) -> str | None:
     if code is None:
         return None
+    if code == "smartlms_not_configured":
+        return "SmartLMS не настроен на сервере: нужен ключ со страницы «Ключи безопасности»."
+    if code == "smartlms_auth_failed":
+        return "SmartLMS не принял ключ. Возьмите новый на странице «Ключи безопасности»."
     if code == "mail_not_configured":
         return "Почта не настроена на сервере: нужны адрес и пароль приложения."
     if code == "mail_oauth_invalid":

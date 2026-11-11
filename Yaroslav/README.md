@@ -6,7 +6,8 @@
 > репозитория не меняется. Отличия от оригинала:
 > - «Фейк-данные» по умолчанию выключены (`HSE_FAKE_DATA_ENABLED=false`): на экране входа
 >   только DSBA Online, `data_source=fake` возвращает 404, а `HSE_DEMO_MODE` по умолчанию `false`.
-> - Подключена почта ВШЭ (Яндекс 360, IMAP): [docs/MAIL.md](docs/MAIL.md).
+> - Коннектор почты ВШЭ (Яндекс 360, IMAP; для студентов ВШЭ OAuth запрещён): [docs/MAIL.md](docs/MAIL.md).
+> - SmartLMS (edu.hse.ru): дедлайны по личному ключу Moodle: [docs/SMARTLMS.md](docs/SMARTLMS.md).
 
 Прототип учебного агента для команды хакатона: **источники → задания и материалы → план дня**.
 Python 3.12+, FastAPI, Jinja2 и обычные HTML/CSS/JS. Для фронтенда не нужны

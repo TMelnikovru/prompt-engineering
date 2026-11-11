@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     mail_request_timeout: float = Field(default=30, ge=1, le=120)
     mail_interval_seconds: int = Field(default=600, ge=60)
     mail_retry_seconds: int = Field(default=60, ge=1)
+    # SmartLMS (edu.hse.ru, Moodle): ключ студента со страницы «Ключи безопасности».
+    smartlms_base_url: str = "https://edu.hse.ru"
+    smartlms_token: SecretStr | None = Field(default=None, repr=False)
+    smartlms_lookback_days: int = Field(default=7, ge=0, le=90)
+    smartlms_lookahead_days: int = Field(default=60, ge=1, le=365)
+    smartlms_max_events: int = Field(default=500, ge=1, le=5000)
+    smartlms_request_timeout: float = Field(default=30, ge=1, le=120)
+    smartlms_interval_seconds: int = Field(default=900, ge=60)
+    smartlms_retry_seconds: int = Field(default=60, ge=1)
     ingestion_token: SecretStr | None = Field(default=None, repr=False)
     openai_api_key: SecretStr | None = Field(
         default=None, validation_alias="OPENAI_API_KEY", repr=False
@@ -72,7 +81,12 @@ class Settings(BaseSettings):
     ai_max_chunks: int = Field(default=8, ge=1, le=20)
 
     @field_validator(
-        "wiki_api_url", "openai_base_url", "dsba_base_url", "mail_web_url", "mail_oauth_base_url"
+        "wiki_api_url",
+        "openai_base_url",
+        "dsba_base_url",
+        "mail_web_url",
+        "mail_oauth_base_url",
+        "smartlms_base_url",
     )
     @classmethod
     def valid_http_endpoint(cls, value: str) -> str:

@@ -152,7 +152,8 @@ async def sync_dsba(
                 raise
 
 
-async def dsba_tasks(database: Database, source_id: str) -> list[Task]:
+async def dsba_tasks(database: Database, source_id: str, kind: str = "dsba") -> list[Task]:
+    """Задания из записей-дедлайнов источника; kind="smartlms" для личного SmartLMS."""
     async with database.session() as session:
         rows = (
             await session.execute(
@@ -161,7 +162,7 @@ async def dsba_tasks(database: Database, source_id: str) -> list[Task]:
                 .join(IngestionSource, SourceDocument.source_id == IngestionSource.id)
                 .where(
                     IngestionSource.id == source_id,
-                    IngestionSource.kind == "dsba",
+                    IngestionSource.kind == kind,
                     SourceDocument.is_active.is_(True),
                     DocumentVersion.attributes["kind"].astext == "deadline",
                 )
@@ -210,18 +211,19 @@ async def dsba_tasks(database: Database, source_id: str) -> list[Task]:
                     ),
                 )
             )
-        return sorted(
-            tasks,
-            key=lambda t: (
-                t.due_at.date().isoformat()
-                if t.due_at
-                else t.due_date.isoformat()
-                if t.due_date
-                else "9999",
-                t.due_at.isoformat() if t.due_at else "",
-                t.id,
-            ),
-        )
+        return sorted(tasks, key=task_sort_key)
+
+
+def task_sort_key(t: Task) -> tuple[str, str, str]:
+    return (
+        t.due_at.date().isoformat()
+        if t.due_at
+        else t.due_date.isoformat()
+        if t.due_date
+        else "9999",
+        t.due_at.isoformat() if t.due_at else "",
+        t.id,
+    )
 
 
 async def dsba_materials(database: Database, source_id: str) -> list[Material]:

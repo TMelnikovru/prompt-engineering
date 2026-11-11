@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import __version__
 from app.api.schemas import ApiError, ApiErrorDetail, Dashboard, PreviewScenario, Readiness, Source
 from app.services.dashboard import get_dashboard
-from app.services.dsba import dsba_materials, dsba_tasks
+from app.services.dsba import dsba_materials, dsba_tasks, task_sort_key
 from app.services.fake_data import get_fake_dashboard
 from app.services.library import list_sources
 
@@ -94,6 +94,13 @@ async def dashboard(
                 result.tasks = await dsba_tasks(database, dsba_source_id)
                 result.materials = await dsba_materials(database, dsba_source_id)
                 result.plan.note = "Задания получены из DSBA. План дня ещё не рассчитан."
+            # SmartLMS — личный ключ владельца сервера, поэтому показывается всегда.
+            lms_tasks = await dsba_tasks(database, "smartlms", kind="smartlms")
+            if lms_tasks:
+                result.tasks = sorted([*result.tasks, *lms_tasks], key=task_sort_key)
+                result.plan.note = (
+                    "Задания получены из подключённых источников. План дня ещё не рассчитан."
+                )
             total = sum(s["document_count"] for s in visible)
             if total or result.tasks or any(s["status"] == "connected" for s in visible):
                 result.meta.mode = "live"

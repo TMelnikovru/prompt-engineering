@@ -37,6 +37,10 @@ services:
       HSE_DSBA_MAX_PROFILES: ${HSE_DSBA_MAX_PROFILES:-}
       HSE_DSBA_INTERVAL_SECONDS: ${HSE_DSBA_INTERVAL_SECONDS:-}
       HSE_FAKE_DATA_ENABLED: ${HSE_FAKE_DATA_ENABLED:-false}
+      HSE_SMARTLMS_BASE_URL: ${HSE_SMARTLMS_BASE_URL:-}
+      HSE_SMARTLMS_TOKEN: ${HSE_SMARTLMS_TOKEN:-}
+      HSE_SMARTLMS_LOOKAHEAD_DAYS: ${HSE_SMARTLMS_LOOKAHEAD_DAYS:-}
+      HSE_SMARTLMS_INTERVAL_SECONDS: ${HSE_SMARTLMS_INTERVAL_SECONDS:-}
       HSE_MAIL_IMAP_HOST: ${HSE_MAIL_IMAP_HOST:-}
       HSE_MAIL_IMAP_PORT: ${HSE_MAIL_IMAP_PORT:-}
       HSE_MAIL_USERNAME: ${HSE_MAIL_USERNAME:-}
@@ -84,6 +88,17 @@ services:
     restart: unless-stopped
     init: true
     command: [python, -m, app.dsba, worker]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  smartlms-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.smartlms, worker]
     environment: *app-environment
     depends_on:
       postgres:
