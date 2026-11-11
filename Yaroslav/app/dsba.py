@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.config import Settings
 from app.connectors.dsba import DsbaConnector, DsbaError, DsbaSelection
 from app.db.session import Database
+from app.runtime import run as run_async
 from app.services.dsba import refresh_dsba_profiles, sync_dsba
 from app.services.ingestion import SyncBusy
 
@@ -71,7 +72,7 @@ def main():
     sync.add_argument("--sub", default="")
     sync.add_argument("--subject", action="append")
     try:
-        raise SystemExit(asyncio.run(execute(parser.parse_args())))
+        raise SystemExit(run_async(execute(parser.parse_args())))
     except (DsbaError, SyncBusy, SQLAlchemyError) as exc:
         code = exc.code if isinstance(exc, DsbaError) else "operation_unavailable"
         print(json.dumps({"error": code}), flush=True)

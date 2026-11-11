@@ -14,6 +14,7 @@ from app.config import Settings
 from app.connectors.wiki import WikiBatch
 from app.db.models import AiArtifact, DocumentVersion, IngestionSource, SourceDocument
 from app.db.session import Database
+from app.runtime import run as run_async
 from app.services.analysis import (
     PROMPT_VERSION,
     AiError,
@@ -205,7 +206,7 @@ def main():
     summary = commands.add_parser("summarize")
     summary.add_argument("--limit", type=int, choices=range(1, 51), default=20)
     try:
-        raise SystemExit(asyncio.run(execute(parser.parse_args())))
+        raise SystemExit(run_async(execute(parser.parse_args())))
     except KeyboardInterrupt:
         pass
 

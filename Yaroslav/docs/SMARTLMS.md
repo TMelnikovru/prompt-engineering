@@ -75,3 +75,20 @@ SmartLMS ВШЭ работает на Moodle, и на нём включён ве
   повторы с паузой. Без ключа воркер ничего не пишет в базу.
 - Ручной проход: `python -m app.smartlms sync`.
 - Дедлайны SmartLMS не отправляются в OpenAI: данные уже структурированы.
+
+## Локальный запуск на Windows
+
+PostgreSQL в папке проекта: бинарники в `.pgsql/`, данные в `.pgdata/`, обе папки не
+попадают в Git. PostgreSQL на Windows не работает с кириллицей в пути, поэтому
+используется короткий путь папки (`C:\Users\3CDE~1\Desktop\PROMPT~1\Yaroslav`).
+
+~~~sh
+# запустить базу (после перезагрузки ПК)
+C:\Users\3CDE~1\Desktop\PROMPT~1\Yaroslav\.pgsql\bin\pg_ctl.exe -D C:\Users\3CDE~1\Desktop\PROMPT~1\Yaroslav\.pgdata -l C:\Users\3CDE~1\Desktop\PROMPT~1\Yaroslav\.pgdata\server.log start
+# обновить дедлайны и запустить сайт на http://127.0.0.1:8000
+.\.venv\Scripts\python.exe -m app.smartlms sync
+.\.venv\Scripts\python.exe -m app.serve
+~~~
+
+`app.serve` и CLI запускают asyncio с SelectorEventLoop (`app/runtime.py`): асинхронный
+psycopg не работает с ProactorEventLoop, который на Windows используется по умолчанию.

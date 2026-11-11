@@ -21,6 +21,7 @@ from app.connectors.yandex_oauth import (
 )
 from app.db.session import Database
 from app.ingest import analyze_pending, stage_error
+from app.runtime import run as run_async
 from app.services.analysis import AiError
 from app.services.ingestion import SyncBusy
 from app.services.mail import sync_mail
@@ -149,7 +150,7 @@ def main():
         command.add_argument("--analyze", action="store_true")
         command.add_argument("--limit", type=int, choices=range(1, 51), default=10)
     try:
-        raise SystemExit(asyncio.run(execute(parser.parse_args())))
+        raise SystemExit(run_async(execute(parser.parse_args())))
     except KeyboardInterrupt:
         pass
 
