@@ -23,6 +23,8 @@ def source_error_message(code: str | None) -> str | None:
         return None
     if code == "smartlms_not_configured":
         return "SmartLMS не настроен на сервере: нужен ключ со страницы «Ключи безопасности»."
+    if code == "smartlms_invalid_login":
+        return "SmartLMS не принял логин или пароль ЕЛК."
     if code == "smartlms_auth_failed":
         return "SmartLMS не принял ключ. Войдите заново: python -m app.smartlms login."
     if code == "mail_not_configured":

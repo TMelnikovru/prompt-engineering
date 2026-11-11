@@ -12,6 +12,7 @@ from app.connectors.smartlms import (
     SmartLmsConnector,
     SmartLmsError,
     launch_url,
+    password_token,
     token_from_launch,
 )
 from app.services.source_catalog import source_error_message
@@ -149,3 +150,37 @@ def test_mobile_launch_login_extracts_and_verifies_token():
     with pytest.raises(SmartLmsError) as error:
         token_from_launch(settings, "abc123", "garbage!!")
     assert error.value.code == "smartlms_bad_launch_token"
+
+
+def test_password_login_returns_only_token_and_maps_errors():
+    calls = []
+    replies = [
+        httpx.Response(200, json={"token": "tok", "privatetoken": "p"}),
+        httpx.Response(200, json={"error": "Неверный логин", "errorcode": "invalidlogin"}),
+        httpx.Response(200, json={"error": "x", "errorcode": "enablewsdescription"}),
+    ]
+
+    def handler(request):
+        calls.append((request.url.path, form(request)))
+        return replies.pop(0)
+
+    settings = Settings(_env_file=None)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            token = await password_token(settings, client, "s@edu.hse.ru", "pw")
+            codes = []
+            for _ in range(2):
+                with pytest.raises(SmartLmsError) as error:
+                    await password_token(settings, client, "s@edu.hse.ru", "bad")
+                codes.append(error.value.code)
+            return token, codes
+
+    token, codes = asyncio.run(run())
+    assert token == "tok"
+    assert codes == ["smartlms_invalid_login", "smartlms_enablewsdescription"]
+    assert calls[0] == (
+        "/login/token.php",
+        {"username": "s@edu.hse.ru", "password": "pw", "service": "moodle_mobile_app"},
+    )
+    assert "логин или пароль" in source_error_message("smartlms_invalid_login")

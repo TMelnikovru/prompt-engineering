@@ -58,6 +58,35 @@ def token_from_launch(settings: Settings, passport: str, value: str) -> str:
     return parts[1]
 
 
+async def password_token(
+    settings: Settings, client: httpx.AsyncClient, username: str, password: str
+) -> str:
+    """Вход официального мобильного приложения по логину и паролю (login/token.php).
+
+    Пароль уходит только на SmartLMS по HTTPS и нигде не сохраняется: вызывающий
+    код получает только ключ.
+    """
+    try:
+        response = await client.post(
+            settings.smartlms_base_url + "/login/token.php",
+            data={"username": username, "password": password, "service": "moodle_mobile_app"},
+        )
+    except httpx.TimeoutException:
+        raise SmartLmsError("smartlms_timeout") from None
+    except httpx.HTTPError:
+        raise SmartLmsError("smartlms_network_error") from None
+    try:
+        body = response.json()
+    except ValueError:
+        raise SmartLmsError("smartlms_invalid_response") from None
+    if isinstance(body, dict) and body.get("token"):
+        return body["token"]
+    code = body.get("errorcode") if isinstance(body, dict) else None
+    if code == "invalidlogin":
+        raise SmartLmsError("smartlms_invalid_login")
+    raise SmartLmsError("smartlms_" + str(code or "login_failed")[:40])
+
+
 class SmartLmsConnector:
     source_id = "smartlms"
 
