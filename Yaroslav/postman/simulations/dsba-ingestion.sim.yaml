@@ -1,0 +1,7 @@
+simulation: dsba-ingestion
+routing: path
+mocks:
+  - name: dsba-public
+    routeKey: dsba
+    origin: [dsba.online]
+    path: postman/mocks/dsba

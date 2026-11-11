@@ -1,0 +1,11 @@
+simulation: wiki-ingestion
+routing: path
+mocks:
+  - name: fkn-wiki
+    routeKey: wiki
+    origin: [wiki.cs.hse.ru]
+    path: postman/mocks/fkn-wiki
+  - name: openai-responses
+    routeKey: openai
+    origin: [api.openai.com]
+    path: postman/mocks/openai

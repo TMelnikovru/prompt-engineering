@@ -1,0 +1,10 @@
+version: 1
+name: openai-responses
+slug: openai-responses
+protocol: http
+port: 4512
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

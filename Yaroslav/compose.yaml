@@ -1,0 +1,123 @@
+name: hse-study-agent
+
+services:
+  app:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${HSE_BIND_HOST:-127.0.0.1}:${HSE_PORT:-8000}:8000"
+    environment: &app-environment
+      HSE_DEMO_MODE: ${HSE_DEMO_MODE:-false}
+      HSE_TIMEZONE: ${HSE_TIMEZONE:-Europe/Moscow}
+      HSE_DATABASE_URL: ${HSE_DATABASE_URL:-}
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-hse_study_agent}
+      PGUSER: ${POSTGRES_USER:-hse_agent}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env}
+      PGCONNECT_TIMEOUT: "5"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      HSE_EXTRACTION_MODEL: ${HSE_EXTRACTION_MODEL:-}
+      HSE_SUMMARY_MODEL: ${HSE_SUMMARY_MODEL:-}
+      HSE_WIKI_API_URL: ${HSE_WIKI_API_URL:-}
+      HSE_WIKI_SEEDS: ${HSE_WIKI_SEEDS:-}
+      HSE_WIKI_MAX_PAGES: ${HSE_WIKI_MAX_PAGES:-}
+      HSE_WIKI_MAX_DEPTH: ${HSE_WIKI_MAX_DEPTH:-}
+      HSE_WIKI_INTERVAL_SECONDS: ${HSE_WIKI_INTERVAL_SECONDS:-}
+      HSE_WIKI_RETRY_SECONDS: ${HSE_WIKI_RETRY_SECONDS:-}
+      HSE_WIKI_REQUEST_TIMEOUT: ${HSE_WIKI_REQUEST_TIMEOUT:-}
+      HSE_WIKI_REQUEST_DELAY: ${HSE_WIKI_REQUEST_DELAY:-}
+      HSE_INGESTION_TOKEN: ${HSE_INGESTION_TOKEN:-}
+      HSE_DSBA_BASE_URL: ${HSE_DSBA_BASE_URL:-}
+      HSE_DSBA_REQUEST_TIMEOUT: ${HSE_DSBA_REQUEST_TIMEOUT:-}
+      HSE_DSBA_MAX_RECORDS: ${HSE_DSBA_MAX_RECORDS:-}
+      HSE_DSBA_MAX_PROFILES: ${HSE_DSBA_MAX_PROFILES:-}
+      HSE_DSBA_INTERVAL_SECONDS: ${HSE_DSBA_INTERVAL_SECONDS:-}
+      HSE_FAKE_DATA_ENABLED: ${HSE_FAKE_DATA_ENABLED:-false}
+      HSE_MAIL_IMAP_HOST: ${HSE_MAIL_IMAP_HOST:-}
+      HSE_MAIL_IMAP_PORT: ${HSE_MAIL_IMAP_PORT:-}
+      HSE_MAIL_USERNAME: ${HSE_MAIL_USERNAME:-}
+      HSE_MAIL_PASSWORD: ${HSE_MAIL_PASSWORD:-}
+      HSE_MAIL_FOLDERS: ${HSE_MAIL_FOLDERS:-}
+      HSE_MAIL_LOOKBACK_DAYS: ${HSE_MAIL_LOOKBACK_DAYS:-}
+      HSE_MAIL_MAX_MESSAGES: ${HSE_MAIL_MAX_MESSAGES:-}
+      HSE_MAIL_ALLOWED_SENDER_DOMAINS: ${HSE_MAIL_ALLOWED_SENDER_DOMAINS:-}
+      HSE_MAIL_INTERVAL_SECONDS: ${HSE_MAIL_INTERVAL_SECONDS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: &app-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  wiki-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.ingest, worker, --analyze, --summarize, --limit, "25", --summary-limit, "25"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  dsba-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.dsba, worker]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  mail-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.mail, worker, --analyze, --limit, "10"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hse_study_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-hse_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  postgres_data:
