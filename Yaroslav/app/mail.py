@@ -12,7 +12,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
 from app.connectors.mail import MailConnector, MailError
-from app.connectors.yandex_oauth import start_device_flow, wait_for_token, write_env_value
+from app.connectors.yandex_oauth import (
+    authorize_url,
+    exchange_code,
+    start_device_flow,
+    wait_for_token,
+    write_env_value,
+)
 from app.db.session import Database
 from app.ingest import analyze_pending, stage_error
 from app.services.analysis import AiError
@@ -40,10 +46,21 @@ async def cycle(database: Database, settings: Settings, analyze: bool, limit: in
     return result
 
 
-async def login(settings: Settings, env_file: Path) -> int:
+async def login(settings: Settings, env_file: Path, browser: bool = False) -> int:
     """Вход через ЕЛК делает сам студент в браузере; токен сразу пишется в .env."""
     try:
         async with httpx.AsyncClient(timeout=settings.mail_request_timeout) as client:
+            if browser:
+                print(
+                    "1. Откройте ссылку, войдите студенческим аккаунтом через ЕЛК и нажмите "
+                    "«Разрешить»:\n" + authorize_url(settings) + "\n"
+                    "2. Скопируйте код подтверждения со страницы Яндекса и вставьте сюда.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                confirmation = await asyncio.to_thread(input, "Код: ")
+                token = await exchange_code(settings, client, confirmation)
+                return save_token(env_file, token)
             code = await start_device_flow(settings, client)
             print(
                 f"Откройте {code.verification_url}, войдите через ЕЛК ВШЭ и введите код: "
@@ -55,6 +72,10 @@ async def login(settings: Settings, env_file: Path) -> int:
     except MailError as exc:
         emit({"error": exc.code})
         return 2
+    return save_token(env_file, token)
+
+
+def save_token(env_file: Path, token) -> int:
     write_env_value(env_file, "HSE_MAIL_OAUTH_TOKEN", token.access_token)
     days = token.expires_in // 86400 if token.expires_in else None
     emit({"saved_to": str(env_file), "expires_in_days": days})
@@ -64,7 +85,7 @@ async def login(settings: Settings, env_file: Path) -> int:
 async def execute(args) -> int:
     settings = Settings()
     if args.command == "login":
-        return await login(settings, Path(args.env_file))
+        return await login(settings, Path(args.env_file), args.browser)
     if args.command == "check":
         try:
             batch = await MailConnector(settings).collect()
@@ -120,6 +141,9 @@ def main():
     commands.add_parser("check")
     login_command = commands.add_parser("login")
     login_command.add_argument("--env-file", default=".env")
+    login_command.add_argument(
+        "--browser", action="store_true", help="вход по ссылке и коду подтверждения"
+    )
     for name in ("sync", "worker"):
         command = commands.add_parser(name)
         command.add_argument("--analyze", action="store_true")

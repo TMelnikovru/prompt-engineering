@@ -11,6 +11,8 @@ from app.connectors import mail as mail_module
 from app.connectors.mail import MailConnector, MailError, parse_message
 from app.connectors.yandex_oauth import (
     DeviceCode,
+    authorize_url,
+    exchange_code,
     start_device_flow,
     wait_for_token,
     write_env_value,
@@ -243,3 +245,30 @@ def test_token_is_written_to_env_without_touching_other_lines(tmp_path):
         "HSE_MAIL_OAUTH_TOKEN=new",
         "OTHER=x",
     ]
+
+
+def test_browser_code_is_exchanged_and_bad_code_is_explained():
+    settings = Settings(_env_file=None, mail_oauth_client_id="cid", mail_oauth_client_secret="sec")
+    url = authorize_url(settings)
+    assert url.startswith("https://oauth.yandex.ru/authorize?")
+    assert "response_type=code" in url and "client_id=cid" in url
+    client, calls = oauth_client(
+        [(200, {"access_token": "tok", "expires_in": 100}), (400, {"error": "invalid_grant"})]
+    )
+
+    async def run():
+        async with client:
+            token = await exchange_code(settings, client, " 1234567 ")
+            with pytest.raises(MailError) as error:
+                await exchange_code(settings, client, "0000000")
+            return token, error.value.code
+
+    token, code = asyncio.run(run())
+    assert token.access_token == "tok"
+    assert code == "mail_oauth_bad_code"
+    assert calls[0][1] == {
+        "grant_type": "authorization_code",
+        "code": "1234567",
+        "client_id": "cid",
+        "client_secret": "sec",
+    }

@@ -8,6 +8,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlencode
 
 import httpx
 
@@ -100,6 +101,48 @@ async def wait_for_token(
             raise MailError("mail_oauth_" + error)
         raise MailError("mail_oauth_rejected")
     raise MailError("mail_oauth_expired_token")
+
+
+def authorize_url(settings: Settings) -> str:
+    """Ссылка для входа в браузере; Яндекс покажет код подтверждения на своей странице.
+
+    Для этого в приложении на oauth.yandex.ru должен быть Redirect URI
+    https://oauth.yandex.ru/verification_code.
+    """
+    query = urlencode(
+        {
+            "response_type": "code",
+            "client_id": _client_credentials(settings)["client_id"],
+            "force_confirm": "yes",
+        }
+    )
+    return settings.mail_oauth_base_url + "/authorize?" + query
+
+
+async def exchange_code(settings: Settings, client: httpx.AsyncClient, code: str) -> OAuthToken:
+    try:
+        response = await client.post(
+            settings.mail_oauth_base_url + "/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code.strip(),
+                **_client_credentials(settings),
+            },
+        )
+        body = response.json()
+    except httpx.HTTPError:
+        raise MailError("mail_oauth_network_error") from None
+    except ValueError:
+        raise MailError("mail_oauth_invalid_response") from None
+    if response.status_code == 200 and isinstance(body, dict) and body.get("access_token"):
+        expires = body.get("expires_in")
+        return OAuthToken(body["access_token"], int(expires) if expires else None)
+    error = body.get("error") if isinstance(body, dict) else None
+    if error == "invalid_grant":
+        raise MailError("mail_oauth_bad_code")
+    if error == "invalid_client":
+        raise MailError("mail_oauth_bad_client")
+    raise MailError("mail_oauth_rejected")
 
 
 def write_env_value(path: Path, key: str, value: str) -> None:
