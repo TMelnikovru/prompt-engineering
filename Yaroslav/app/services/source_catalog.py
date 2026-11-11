@@ -22,7 +22,9 @@ def source_error_message(code: str | None) -> str | None:
     if code is None:
         return None
     if code == "smartlms_not_configured":
-        return "SmartLMS не настроен на сервере: нужен ключ со страницы «Ключи безопасности»."
+        return "SmartLMS не настроен на сервере: нужна ссылка «Экспорт календаря»."
+    if code == "smartlms_calendar_invalid":
+        return "SmartLMS не отдал календарь: ссылка устарела. Получите новую в «Экспорт календаря»."
     if code == "smartlms_invalid_login":
         return "SmartLMS не принял логин или пароль ЕЛК."
     if code == "smartlms_auth_failed":

@@ -25,7 +25,7 @@ from app.connectors.yandex_oauth import write_env_value
 from app.db.session import Database
 from app.ingest import stage_error
 from app.services.ingestion import SyncBusy
-from app.services.smartlms import sync_smartlms
+from app.services.smartlms import collect_deadlines, configured, sync_smartlms
 
 
 def emit(value):
@@ -85,20 +85,21 @@ async def login(settings: Settings, env_file: Path) -> int:
 
 
 async def check(settings: Settings) -> int:
+    if not configured(settings):
+        emit({"error": "smartlms_not_configured"})
+        return 2
     try:
-        async with SmartLmsConnector(settings) as connector:
-            info = await connector.site_info()
-            records, has_more = await connector.deadlines()
+        records, has_more, mode = await collect_deadlines(settings)
     except SmartLmsError as exc:
         emit({"error": exc.code})
         return 2
     emit(
         {
-            "site": info.get("sitename"),
+            "mode": mode,
             "deadlines": len(records),
             "has_more": has_more,
             "nearest": [
-                {"title": r.attributes["facts"]["title"], "due_at": r.attributes["facts"]["due_at"]}
+                {"title": r.attributes["facts"]["title"], "due": r.attributes["facts"]["due_raw"]}
                 for r in records[:10]
             ],
         }
@@ -129,7 +130,7 @@ async def execute(args) -> int:
     if settings.database_url is None:
         emit({"error": "database_not_configured"})
         return 2
-    if args.command == "worker" and settings.smartlms_token is None:
+    if args.command == "worker" and not configured(settings):
         # Без ключа воркер не пишет в базу ложные сбои: источник просто не подключён.
         while True:
             emit({"event": "smartlms_cycle", "skipped": "smartlms_not_configured"})

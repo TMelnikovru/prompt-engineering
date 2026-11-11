@@ -1,6 +1,6 @@
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.db.url import postgresql_url
@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     # SmartLMS (edu.hse.ru, Moodle): ключ студента со страницы «Ключи безопасности».
     smartlms_base_url: str = "https://edu.hse.ru"
     smartlms_token: SecretStr | None = Field(default=None, repr=False)
+    # Личная ссылка «Экспорт календаря» (export_execute.php?...&authtoken=...): секрет.
+    smartlms_calendar_url: SecretStr | None = Field(default=None, repr=False)
     smartlms_lookback_days: int = Field(default=7, ge=0, le=90)
     smartlms_lookahead_days: int = Field(default=60, ge=1, le=365)
     smartlms_max_events: int = Field(default=500, ge=1, le=5000)
@@ -96,6 +98,16 @@ class Settings(BaseSettings):
         if url.scheme not in {"http", "https"} or not url.hostname or url.username:
             raise ValueError("Укажите HTTP(S) URL без учётных данных")
         return value.rstrip("/")
+
+    @model_validator(mode="after")
+    def calendar_on_smartlms_host(self) -> "Settings":
+        from urllib.parse import urlsplit
+
+        if self.smartlms_calendar_url is not None:
+            url = urlsplit(self.smartlms_calendar_url.get_secret_value())
+            if url.scheme != "https" or url.hostname != urlsplit(self.smartlms_base_url).hostname:
+                raise ValueError("Ссылка календаря должна вести на HTTPS-адрес SmartLMS")
+        return self
 
     @field_validator("mail_allowed_sender_domains")
     @classmethod
