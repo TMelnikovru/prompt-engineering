@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # Только письма с этих доменов попадают в базу и к модели; пустой список — все письма.
     mail_allowed_sender_domains: list[str] = Field(default_factory=lambda: ["hse.ru"])
     mail_web_url: str = "https://mail.yandex.ru"
+    # OAuth Яндекса вместо пароля: вход через ЕЛК делает сам студент (python -m app.mail login).
+    mail_oauth_client_id: str | None = None
+    mail_oauth_client_secret: SecretStr | None = Field(default=None, repr=False)
+    mail_oauth_token: SecretStr | None = Field(default=None, repr=False)
+    mail_oauth_base_url: str = "https://oauth.yandex.ru"
     mail_request_timeout: float = Field(default=30, ge=1, le=120)
     mail_interval_seconds: int = Field(default=600, ge=60)
     mail_retry_seconds: int = Field(default=60, ge=1)
@@ -66,7 +71,9 @@ class Settings(BaseSettings):
     ai_chunk_chars: int = Field(default=12000, ge=1000, le=40000)
     ai_max_chunks: int = Field(default=8, ge=1, le=20)
 
-    @field_validator("wiki_api_url", "openai_base_url", "dsba_base_url", "mail_web_url")
+    @field_validator(
+        "wiki_api_url", "openai_base_url", "dsba_base_url", "mail_web_url", "mail_oauth_base_url"
+    )
     @classmethod
     def valid_http_endpoint(cls, value: str) -> str:
         from urllib.parse import urlsplit

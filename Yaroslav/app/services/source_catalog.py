@@ -23,6 +23,8 @@ def source_error_message(code: str | None) -> str | None:
         return None
     if code == "mail_not_configured":
         return "Почта не настроена на сервере: нужны адрес и пароль приложения."
+    if code == "mail_oauth_invalid":
+        return "Токен Яндекса истёк или отозван. Выполните вход заново: python -m app.mail login."
     if code == "mail_auth_failed":
         return "Почта отклонила вход. Проверьте адрес и пароль приложения Яндекс 360."
     if code == "dsba_record_limit":

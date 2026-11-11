@@ -3,11 +3,18 @@ import imaplib
 from datetime import UTC, datetime
 from email.message import EmailMessage
 
+import httpx
 import pytest
 
 from app.config import Settings
 from app.connectors import mail as mail_module
 from app.connectors.mail import MailConnector, MailError, parse_message
+from app.connectors.yandex_oauth import (
+    DeviceCode,
+    start_device_flow,
+    wait_for_token,
+    write_env_value,
+)
 from app.services.source_catalog import source_error_message
 
 NOW = datetime(2026, 11, 11, 9, 0, tzinfo=UTC)
@@ -98,6 +105,12 @@ class FakeImap:
         raw = raw_message(sender=sender, message_id=f"<{uid}@hse.ru>")
         return "OK", [(b"1 (BODY[] {1})", raw), b")"]
 
+    def authenticate(self, mechanism, callback):
+        self.auth = (mechanism, callback(b""))
+        if b"auth=Bearer good-token" not in self.auth[1]:
+            raise imaplib.IMAP4.error("AUTHENTICATE failed")
+        return "OK", [b""]
+
     def logout(self):
         self.logged_out = True
 
@@ -128,3 +141,105 @@ def test_auth_failure_and_missing_config_do_not_leak_details(monkeypatch):
     assert error.value.code == "mail_not_configured"
     assert "пароль приложения" in source_error_message("mail_auth_failed")
     assert "app-password" not in repr(settings())
+
+
+def test_oauth_token_uses_xoauth2_and_never_needs_password(monkeypatch):
+    FakeImap.instances.clear()
+    monkeypatch.setattr(mail_module.imaplib, "IMAP4_SSL", FakeImap)
+    oauth = Settings(
+        _env_file=None, mail_username="student@edu.hse.ru", mail_oauth_token="good-token"
+    )
+    batch = asyncio.run(MailConnector(oauth).collect())
+    mechanism, payload = FakeImap.instances[0].auth
+    assert mechanism == "XOAUTH2"
+    assert payload == b"user=student@edu.hse.ru\x01auth=Bearer good-token\x01\x01"
+    assert batch.messages
+    expired = Settings(
+        _env_file=None, mail_username="student@edu.hse.ru", mail_oauth_token="old-token"
+    )
+    with pytest.raises(MailError) as error:
+        asyncio.run(MailConnector(expired).collect())
+    assert error.value.code == "mail_oauth_invalid"
+    assert "app.mail login" in source_error_message("mail_oauth_invalid")
+    assert "good-token" not in repr(oauth)
+
+
+def oauth_client(responses):
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.url.path, dict(httpx.QueryParams(request.content.decode()))))
+        status, body = responses.pop(0)
+        return httpx.Response(status, json=body)
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), calls
+
+
+def test_device_flow_waits_for_student_and_respects_slow_down():
+    settings = Settings(_env_file=None, mail_oauth_client_id="cid", mail_oauth_client_secret="sec")
+    client, calls = oauth_client(
+        [
+            (
+                200,
+                {
+                    "device_code": "dev",
+                    "user_code": "ABCD",
+                    "verification_url": "https://ya.ru/device",
+                    "interval": 5,
+                    "expires_in": 300,
+                },
+            ),
+            (400, {"error": "authorization_pending"}),
+            (400, {"error": "slow_down"}),
+            (200, {"access_token": "tok", "expires_in": 31536000}),
+        ]
+    )
+    sleeps = []
+
+    async def fake_sleep(seconds):
+        sleeps.append(seconds)
+
+    async def run():
+        async with client:
+            code = await start_device_flow(settings, client)
+            return code, await wait_for_token(settings, client, code, sleep=fake_sleep)
+
+    code, token = asyncio.run(run())
+    assert code.user_code == "ABCD"
+    assert token.access_token == "tok" and token.expires_in == 31536000
+    assert sleeps == [5, 5, 10]
+    assert calls[0] == ("/device/code", {"client_id": "cid", "device_name": "HSE Study Agent"})
+    assert calls[1][1] == {
+        "grant_type": "device_code",
+        "code": "dev",
+        "client_id": "cid",
+        "client_secret": "sec",
+    }
+
+
+def test_device_flow_reports_denial_and_missing_client():
+    settings = Settings(_env_file=None, mail_oauth_client_id="cid")
+    client, _ = oauth_client([(400, {"error": "access_denied"})])
+    code = DeviceCode("dev", "ABCD", "https://ya.ru/device", 1, 60)
+
+    async def no_sleep(_):
+        return None
+
+    with pytest.raises(MailError) as error:
+        asyncio.run(wait_for_token(settings, client, code, sleep=no_sleep))
+    assert error.value.code == "mail_oauth_access_denied"
+    with pytest.raises(MailError) as error:
+        asyncio.run(start_device_flow(Settings(_env_file=None), client))
+    assert error.value.code == "mail_oauth_client_missing"
+
+
+def test_token_is_written_to_env_without_touching_other_lines(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("HSE_MAIL_USERNAME=a@edu.hse.ru\nHSE_MAIL_OAUTH_TOKEN=old\n", encoding="utf-8")
+    write_env_value(env, "HSE_MAIL_OAUTH_TOKEN", "new")
+    write_env_value(env, "OTHER", "x")
+    assert env.read_text(encoding="utf-8").splitlines() == [
+        "HSE_MAIL_USERNAME=a@edu.hse.ru",
+        "HSE_MAIL_OAUTH_TOKEN=new",
+        "OTHER=x",
+    ]

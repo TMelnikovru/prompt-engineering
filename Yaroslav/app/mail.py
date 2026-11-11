@@ -1,14 +1,18 @@
-"""CLI и серверный воркер почты: sync — один проход, worker — по расписанию,
-check — проверка входа в ящик без записи в базу."""
+"""CLI и серверный воркер почты: login — вход через Яндекс/ЕЛК и запись токена в .env,
+check — проверка ящика без записи в базу, sync — один проход, worker — по расписанию."""
 
 import argparse
 import asyncio
 import json
+import sys
+from pathlib import Path
 
+import httpx
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
 from app.connectors.mail import MailConnector, MailError
+from app.connectors.yandex_oauth import start_device_flow, wait_for_token, write_env_value
 from app.db.session import Database
 from app.ingest import analyze_pending, stage_error
 from app.services.analysis import AiError
@@ -36,8 +40,31 @@ async def cycle(database: Database, settings: Settings, analyze: bool, limit: in
     return result
 
 
+async def login(settings: Settings, env_file: Path) -> int:
+    """Вход через ЕЛК делает сам студент в браузере; токен сразу пишется в .env."""
+    try:
+        async with httpx.AsyncClient(timeout=settings.mail_request_timeout) as client:
+            code = await start_device_flow(settings, client)
+            print(
+                f"Откройте {code.verification_url}, войдите через ЕЛК ВШЭ и введите код: "
+                f"{code.user_code}\nЖдём подтверждения {code.expires_in // 60} мин…",
+                file=sys.stderr,
+                flush=True,
+            )
+            token = await wait_for_token(settings, client, code)
+    except MailError as exc:
+        emit({"error": exc.code})
+        return 2
+    write_env_value(env_file, "HSE_MAIL_OAUTH_TOKEN", token.access_token)
+    days = token.expires_in // 86400 if token.expires_in else None
+    emit({"saved_to": str(env_file), "expires_in_days": days})
+    return 0
+
+
 async def execute(args) -> int:
     settings = Settings()
+    if args.command == "login":
+        return await login(settings, Path(args.env_file))
     if args.command == "check":
         try:
             batch = await MailConnector(settings).collect()
@@ -57,7 +84,8 @@ async def execute(args) -> int:
     if settings.database_url is None:
         emit({"error": "database_not_configured"})
         return 2
-    if args.command == "worker" and (not settings.mail_username or not settings.mail_password):
+    configured = settings.mail_username and (settings.mail_password or settings.mail_oauth_token)
+    if args.command == "worker" and not configured:
         # Без ящика воркер не пишет в базу ложные сбои: источник просто не подключён.
         while True:
             emit({"event": "mail_cycle", "skipped": "mail_not_configured"})
@@ -90,6 +118,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("check")
+    login_command = commands.add_parser("login")
+    login_command.add_argument("--env-file", default=".env")
     for name in ("sync", "worker"):
         command = commands.add_parser(name)
         command.add_argument("--analyze", action="store_true")

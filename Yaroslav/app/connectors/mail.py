@@ -171,7 +171,9 @@ class MailConnector:
     source_id = "mail"
 
     def __init__(self, settings: Settings):
-        if not settings.mail_username or settings.mail_password is None:
+        if not settings.mail_username or (
+            settings.mail_password is None and settings.mail_oauth_token is None
+        ):
             raise MailError("mail_not_configured")
         self.settings = settings
 
@@ -192,10 +194,18 @@ class MailConnector:
         except (OSError, imaplib.IMAP4.error):
             raise MailError("mail_network_error") from None
         try:
-            client.login(s.mail_username, s.mail_password.get_secret_value())
+            if s.mail_oauth_token is not None:
+                # OAuth имеет приоритет: пароль ЕЛК агенту не нужен.
+                from app.connectors.yandex_oauth import xoauth2_string
+
+                payload = xoauth2_string(s.mail_username, s.mail_oauth_token.get_secret_value())
+                client.authenticate("XOAUTH2", lambda _: payload)
+            else:
+                client.login(s.mail_username, s.mail_password.get_secret_value())
         except imaplib.IMAP4.error:
             # Текст ответа сервера может содержать логин — не пробрасываем его.
-            raise MailError("mail_auth_failed") from None
+            code = "mail_oauth_invalid" if s.mail_oauth_token is not None else "mail_auth_failed"
+            raise MailError(code) from None
         except TimeoutError:
             raise MailError("mail_timeout") from None
         except OSError:
