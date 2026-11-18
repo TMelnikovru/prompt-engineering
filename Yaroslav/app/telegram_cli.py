@@ -29,8 +29,19 @@ async def execute(command: str) -> int:
             else:
                 async for dialog in client.iter_dialogs():
                     if dialog.is_group or dialog.is_channel:
+                        username = getattr(dialog.entity, "username", None)
+                        kind = "группа" if dialog.is_group else "канал"
                         print(
-                            json.dumps({"id": dialog.id, "name": dialog.name}, ensure_ascii=False)
+                            json.dumps(
+                                {
+                                    "id": dialog.id,
+                                    "name": dialog.name,
+                                    "type": kind,
+                                    # Открытый канал можно читать без аккаунта: @username.
+                                    "username": "@" + username if username else None,
+                                },
+                                ensure_ascii=False,
+                            )
                         )
         return 0
     except (TelegramError, errors.RPCError, OSError, ValueError, TimeoutError) as exc:
