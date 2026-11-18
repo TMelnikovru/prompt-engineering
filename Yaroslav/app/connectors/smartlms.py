@@ -154,7 +154,12 @@ class SmartLmsConnector:
                 params["aftereventid"] = after
             body = await self.call("core_calendar_get_action_events_by_timesort", **params)
             events = body.get("events", []) if isinstance(body, dict) else []
-            records.extend(self.event_record(event, now) for event in events)
+            records.extend(
+                self.event_record(event, now)
+                for event in events
+                # Открытие активности — не срок сдачи.
+                if event.get("eventtype") != "open"
+            )
             if len(events) < PAGE_SIZE:
                 return records, False
             after = events[-1]["id"]

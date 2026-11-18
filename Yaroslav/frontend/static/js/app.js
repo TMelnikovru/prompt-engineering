@@ -623,11 +623,10 @@ function toggleDone(task) {
   if (wasDone) state.done.delete(task.id);
   else state.done.add(task.id);
   save("done", [...state.done]);
-  toast(wasDone ? "Задание снова в работе" : "Задание готово", state.dataSource === "fake"
-    ? "Отметка сохранена в браузере. Пример плана пересчитывается."
-    : "Отметку запомнил этот браузер. Сервер узнает о ней вместе с API заданий.");
+  toast(wasDone ? "Задание снова в работе" : "Задание готово",
+    "Отметка сохранена в браузере. План дня пересчитывается.");
   renderAll();
-  if (state.dataSource === "fake") loadDashboard();
+  loadDashboard();
 }
 
 function renderCourses() {
@@ -909,7 +908,7 @@ function renderSettings() {
   const form = $("#settings-form");
   $("#settings-mode-hint").textContent = state.dataSource === "fake"
     ? "Настройки запоминает этот браузер. Доступное время учитывается в примере плана."
-    : "Настройки запоминает этот браузер. Сервер начнёт их учитывать вместе с API настроек.";
+    : "Настройки запоминает этот браузер. Доступное время учитывается в плане дня.";
   const defaults = { minutes: state.dashboard.plan.available_minutes, channels: ["site"], remind: "1440", sync: "30" };
   const settings = { ...defaults, ...state.settings };
   const choices = $$("input[name=minutes]", form);
@@ -934,7 +933,7 @@ $("#settings-form").addEventListener("submit", (event) => {
   save("settings", state.settings);
   $("#settings-saved").textContent = "Браузер запомнил настройки.";
   toast("Браузер запомнил настройки");
-  if (state.dataSource === "fake") loadDashboard();
+  loadDashboard();
 });
 
 /* ---------- Навигация ---------- */

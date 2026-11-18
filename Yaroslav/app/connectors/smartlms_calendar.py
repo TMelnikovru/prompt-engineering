@@ -17,6 +17,8 @@ from app.connectors.base import DocumentRecord
 from app.connectors.smartlms import SmartLmsError
 
 MAX_ICS_BYTES = 5_000_000
+# События открытия («Reading opens», «Тест открывается») — не сроки сдачи.
+OPENING = re.compile(r"(\bopens|открывается|открытие|начинается)\W*$", re.I)
 
 
 def _unfold(text: str) -> list[str]:
@@ -78,6 +80,8 @@ def event_record(event: dict, settings: Settings, fetched_at: datetime) -> Docum
     if not uid or due is None:
         return None
     title = _unescape(event.get("SUMMARY", ({}, "Событие"))[1]).strip() or "Событие"
+    if OPENING.search(title):
+        return None
     course = _unescape(event.get("CATEGORIES", ({}, ""))[1]).strip() or "SmartLMS"
     description = _unescape(event.get("DESCRIPTION", ({}, ""))[1]).strip()
     url = event.get("URL", ({}, ""))[1].strip() or settings.smartlms_base_url

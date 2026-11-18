@@ -1,5 +1,7 @@
 import asyncio
+from datetime import datetime
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
@@ -11,6 +13,7 @@ from app.services.dashboard import get_dashboard
 from app.services.dsba import dsba_materials, dsba_tasks, task_sort_key
 from app.services.fake_data import get_fake_dashboard
 from app.services.library import list_sources
+from app.services.planner import build_plan
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -93,21 +96,20 @@ async def dashboard(
             if dsba_source_id:
                 result.tasks = await dsba_tasks(database, dsba_source_id)
                 result.materials = await dsba_materials(database, dsba_source_id)
-                result.plan.note = "Задания получены из DSBA. План дня ещё не рассчитан."
-            # SmartLMS — личный ключ владельца сервера, поэтому показывается всегда.
+            # SmartLMS — личная ссылка владельца сервера, поэтому показывается всегда.
             lms_tasks = await dsba_tasks(database, "smartlms", kind="smartlms")
-            if lms_tasks:
-                result.tasks = sorted([*result.tasks, *lms_tasks], key=task_sort_key)
-                result.plan.note = (
-                    "Задания получены из подключённых источников. План дня ещё не рассчитан."
-                )
+            result.tasks = sorted([*result.tasks, *lms_tasks], key=task_sort_key)
+            if result.tasks:
+                now = datetime.now(ZoneInfo(settings.timezone))
+                done = {item for item in completed.split(",") if item}
+                result.tasks, result.plan = build_plan(result.tasks, now, available_minutes, done)
             total = sum(s["document_count"] for s in visible)
             if total or result.tasks or any(s["status"] == "connected" for s in visible):
                 result.meta.mode = "live"
                 result.meta.notice = (
                     f"В библиотеке {total} записей из подключённых источников. "
-                    "Задания DSBA относятся к выбранной группе. Приоритеты — рекомендации. "
-                    "Страницы вики ещё не привязаны к твоему курсу."
+                    "Задания DSBA относятся к выбранной группе, SmartLMS — к владельцу сервера. "
+                    "Приоритеты и длительность — рекомендации."
                 )
         except SQLAlchemyError:
             result.meta.notice = "Хранилище источников временно недоступно."

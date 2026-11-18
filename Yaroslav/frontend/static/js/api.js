@@ -15,11 +15,12 @@ export async function fetchDashboard(scenario = "default", dsbaSourceId = null, 
   try {
     const query = new URLSearchParams({ scenario });
     if (dsbaSourceId) query.set("dsba_source_id", dsbaSourceId);
-    if (options.dataSource === "fake") {
-      query.set("data_source", "fake");
-      query.set("available_minutes", String(options.availableMinutes ?? 120));
-      query.set("completed", (options.completed || []).filter((id) => id.startsWith("fake-")).slice(-50).join(","));
-    }
+    const fake = options.dataSource === "fake";
+    if (fake) query.set("data_source", "fake");
+    // План дня считается на сервере и для реальных заданий: передаём время и отметки «Готово».
+    query.set("available_minutes", String(options.availableMinutes ?? 120));
+    query.set("completed", (options.completed || [])
+      .filter((id) => id.startsWith("fake-") === fake).slice(-50).join(","));
     const response = await fetch("/api/v1/dashboard?" + query, {
       signal: controller.signal,
       headers: { Accept: "application/json" },

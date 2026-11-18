@@ -31,6 +31,21 @@ CATEGORIES:Матанализ
 DTSTART;VALUE=DATE:20261125
 END:VEVENT
 BEGIN:VEVENT
+UID:103@edu.hse.ru
+SUMMARY:Reading opens
+DTSTART:20261207T000100Z
+END:VEVENT
+BEGIN:VEVENT
+UID:104@edu.hse.ru
+SUMMARY:Тест 2 открывается
+DTSTART:20261208T090000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:105@edu.hse.ru
+SUMMARY:Reading closes
+DTSTART:20261217T150000Z
+END:VEVENT
+BEGIN:VEVENT
 UID:99@edu.hse.ru
 SUMMARY:Старое событие
 DTSTART:20260901T090000Z
@@ -53,7 +68,7 @@ def client(response):
 
 def test_parse_unfolds_lines_and_unescapes_text():
     events = parse_ics(ICS)
-    assert len(events) == 4
+    assert len(events) == 7
     assert events[0]["DESCRIPTION"][1].endswith("Условие в курсе.")
     assert events[1]["DTSTART"] == ({"VALUE": "DATE"}, "20261125")
 
@@ -66,8 +81,9 @@ def test_calendar_becomes_deadlines_with_exact_time_and_date_only():
     assert [r.attributes["facts"]["title"] for r in records] == [
         "ДЗ 3 по алгоритмам: срок сдачи",
         "Коллоквиум",
+        "Reading closes",
     ]
-    exact, date_only = (r.attributes["facts"] for r in records)
+    exact, date_only, _ = (r.attributes["facts"] for r in records)
     assert exact["due_at"] == "2026-11-20T23:59:00+03:00" and exact["course"] == "Алгоритмы"
     assert "Решить задачи 1–5, прислать PDF." in records[0].text
     # Дата без времени не превращается в 23:59.
