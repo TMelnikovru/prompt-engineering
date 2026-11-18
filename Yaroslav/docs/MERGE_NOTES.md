@@ -24,3 +24,18 @@ dsba-worker. Нужны серверные PostgreSQL-параметры и OPEN
 Проверки: pytest с отдельной PostgreSQL, HTTP stand-ins вики/OpenAI/DSBA,
 контракты JS и HTML, актуальность OpenAPI, Docker/deploy в CI. Ручной сценарий:
 вход с выбором DSBA → Задания → Материалы → обновление; «Источники» показывает статус.
+
+## Telegram поверх объединения
+
+Ветка `telegram` содержит это объединение (`1e123f2`) и добавляет чтение выбранных
+Telegram-чатов, PDF из них и ИИ-сводку переписки (`docs/TELEGRAM.md`).
+
+- Библиотека разделена по источникам: вики и DSBA читаются без ключа, записи и
+  источник Telegram и `/knowledge/*` требуют `X-Ingestion-Token`.
+- Пообъектное ИИ-извлечение не запускается для DSBA и Telegram.
+- Записи всех источников сохраняются через общий `store_record`.
+- Telegram-worker включается профилем compose `telegram`; сессия хранится в
+  отдельном volume и не передаётся в Git.
+
+Перед слиянием в backend выполнить проверки из README, включая PostgreSQL
+integration tests и `python -m scripts.export_openapi --check`.

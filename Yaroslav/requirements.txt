@@ -46,6 +46,10 @@ psycopg==3.3.6
     # via hse-study-agent
 psycopg-binary==3.3.6 ; implementation_name != 'pypy'
     # via psycopg
+pyaes==1.6.1
+    # via telethon
+pyasn1==0.6.4
+    # via rsa
 pydantic==2.14.1
     # via
     #   fastapi
@@ -54,8 +58,12 @@ pydantic-core==2.50.1
     # via pydantic
 pydantic-settings==2.16.1
     # via hse-study-agent
+pypdf==6.21.2
+    # via hse-study-agent
 python-dotenv==1.2.4
     # via pydantic-settings
+rsa==4.9.1
+    # via telethon
 soupsieve==3.0.4
     # via beautifulsoup4
 sqlalchemy==2.1.6
@@ -64,6 +72,8 @@ sqlalchemy==2.1.6
     #   hse-study-agent
 starlette==1.10.0
     # via fastapi
+telethon==1.45.0
+    # via hse-study-agent
 typing-extensions==4.16.0
     # via
     #   alembic

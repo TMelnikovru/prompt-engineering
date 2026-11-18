@@ -38,9 +38,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         description=(
             "Контракт для разработки сайта учебного агента. "
-            "Вики ФКН, DSBA Online по выбранной группе, библиотека PostgreSQL "
-            "и сохранённые результаты ИИ-обработки. "
-            "Персональные задания, план и напоминания ещё не формируются из вики."
+            "Вики ФКН, DSBA Online по выбранной группе, сводки Telegram, "
+            "библиотека PostgreSQL и сохранённые результаты ИИ-обработки. "
+            "Записи Telegram и ИИ-сводки требуют X-Ingestion-Token. "
+            "Готовность живых подключений зависит от настройки и последней синхронизации. "
+            "Персональные задания, план и напоминания ещё не формируются из вики и Telegram."
         ),
     )
     application.state.settings = resolved_settings
@@ -82,6 +84,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         response.headers["Cache-Control"] = "no-cache"
         return response
+
+    @application.get("/telegram", response_class=HTMLResponse, include_in_schema=False)
+    def telegram_page(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(request=request, name="telegram.html")
 
     return application
 

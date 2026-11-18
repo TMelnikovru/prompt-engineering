@@ -31,6 +31,18 @@ services:
       HSE_WIKI_REQUEST_TIMEOUT: ${HSE_WIKI_REQUEST_TIMEOUT:-}
       HSE_WIKI_REQUEST_DELAY: ${HSE_WIKI_REQUEST_DELAY:-}
       HSE_INGESTION_TOKEN: ${HSE_INGESTION_TOKEN:-}
+      HSE_TELEGRAM_API_ID: ${HSE_TELEGRAM_API_ID:-}
+      HSE_TELEGRAM_API_HASH: ${HSE_TELEGRAM_API_HASH:-}
+      HSE_TELEGRAM_CHATS: ${HSE_TELEGRAM_CHATS:-}
+      HSE_TELEGRAM_HISTORY_DAYS: ${HSE_TELEGRAM_HISTORY_DAYS:-}
+      HSE_TELEGRAM_BATCH_SIZE: ${HSE_TELEGRAM_BATCH_SIZE:-}
+      HSE_TELEGRAM_EDIT_SCAN_LIMIT: ${HSE_TELEGRAM_EDIT_SCAN_LIMIT:-}
+      HSE_TELEGRAM_INTERVAL_SECONDS: ${HSE_TELEGRAM_INTERVAL_SECONDS:-}
+      HSE_TELEGRAM_REQUEST_TIMEOUT: ${HSE_TELEGRAM_REQUEST_TIMEOUT:-}
+      HSE_TELEGRAM_SUMMARY_MESSAGES: ${HSE_TELEGRAM_SUMMARY_MESSAGES:-}
+      HSE_TELEGRAM_PDF_MAX_BYTES: ${HSE_TELEGRAM_PDF_MAX_BYTES:-}
+      HSE_TELEGRAM_PDF_MAX_PAGES: ${HSE_TELEGRAM_PDF_MAX_PAGES:-}
+      HSE_TELEGRAM_PDF_MAX_CHARS: ${HSE_TELEGRAM_PDF_MAX_CHARS:-}
       HSE_DSBA_BASE_URL: ${HSE_DSBA_BASE_URL:-}
       HSE_DSBA_REQUEST_TIMEOUT: ${HSE_DSBA_REQUEST_TIMEOUT:-}
       HSE_DSBA_MAX_RECORDS: ${HSE_DSBA_MAX_RECORDS:-}
@@ -54,6 +66,8 @@ services:
       HSE_MAIL_MAX_MESSAGES: ${HSE_MAIL_MAX_MESSAGES:-}
       HSE_MAIL_ALLOWED_SENDER_DOMAINS: ${HSE_MAIL_ALLOWED_SENDER_DOMAINS:-}
       HSE_MAIL_INTERVAL_SECONDS: ${HSE_MAIL_INTERVAL_SECONDS:-}
+    volumes:
+      - telegram_sessions:/app/.sessions
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,6 +97,16 @@ services:
       postgres:
         condition: service_healthy
     logging: *app-logging
+
+  telegram-worker:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    profiles: [telegram]
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.ingest, telegram-worker, --summarize]
+    environment: *app-environment
+    volumes:
+      - telegram_sessions:/app/.sessions
 
   dsba-worker:
     image: ${HSE_APP_IMAGE:-hse-study-agent:local}
@@ -140,3 +164,4 @@ services:
 
 volumes:
   postgres_data:
+  telegram_sessions:

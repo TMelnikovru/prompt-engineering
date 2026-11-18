@@ -43,3 +43,11 @@ The same recovery and worker restart are automated in
 tests/test_ingestion_integration.py against the same HTTP handlers.
 This proves recovery against the stand-ins, not availability of the real wiki.
 <!-- end:observations -->
+
+2026-10-25 Telegram digest run: sync_telegram persisted two synthetic messages
+in an isolated PostgreSQL database using an MTProto transport double, then
+summarize_telegram called the running gateway at /openai/v1/responses.
+The NDJSON log recorded one POST, status 200; repeating the digest used the
+database cache without another model call. openai-responses served requests;
+fkn-wiki stayed silent because this path reads Telegram, not wiki.
+This does not establish real Telegram authorization or model output quality.

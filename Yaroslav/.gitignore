@@ -13,6 +13,10 @@ htmlcov/
 *.db
 *.log
 .sessions/
+*.session
+*.session-journal
+*.session-wal
+*.session-shm
 runtime/
 node_modules/
 .DS_Store

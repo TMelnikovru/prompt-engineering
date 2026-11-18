@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
-from app.connectors.base import DocumentRecord
+from app.connectors.base import DocumentRecord, SourceRecord
 from app.connectors.wiki import WikiBatch, WikiConnector, WikiError
 from app.db.models import DocumentVersion, IngestionRun, IngestionSource, SourceDocument
 from app.db.session import Database
@@ -36,6 +36,31 @@ async def ingestion_lock(database: Database, name: str):
 
 
 async def store_page(database: Database, page: DocumentRecord) -> str:
+    return await store_record(
+        database,
+        page,
+        raw_content=page.raw_content,
+        revision_key=page.revision_key,
+        content_hash=page.content_hash,
+        attributes={
+            **page.attributes,
+            "links": page.links,
+            "source_revision": page.revision_key,
+            "published_at": page.published_at.isoformat() if page.published_at else None,
+        },
+    )
+
+
+async def store_record(
+    database: Database,
+    page: SourceRecord,
+    *,
+    raw_content: str,
+    revision_key: str,
+    content_hash: str,
+    attributes: dict,
+) -> str:
+    """Сохранить версию записи; то же содержимое не создаёт новую версию или документ."""
     async with database.session() as session, session.begin():
         document = await session.scalar(
             select(SourceDocument)
@@ -57,7 +82,7 @@ async def store_page(database: Database, page: DocumentRecord) -> str:
             )
             session.add(document)
             await session.flush()
-        revision_key = page.revision_key + ":" + page.content_hash
+        revision_key = revision_key + ":" + content_hash
         version = await session.scalar(
             select(DocumentVersion).where(
                 DocumentVersion.document_id == document.id,
@@ -65,16 +90,11 @@ async def store_page(database: Database, page: DocumentRecord) -> str:
             )
         )
         if version is None:
-            attributes = {
-                **page.attributes,
-                "links": page.links,
-                "source_revision": page.revision_key,
-                "published_at": page.published_at.isoformat() if page.published_at else None,
-            }
-            if document.current_version_id and page.attributes.get("kind") == "deadline":
+            attributes = dict(attributes)
+            if document.current_version_id and attributes.get("kind") == "deadline":
                 previous = await session.get(DocumentVersion, document.current_version_id)
                 old_facts = previous.attributes.get("facts", {})
-                new_facts = page.attributes.get("facts", {})
+                new_facts = attributes.get("facts", {})
                 if old_facts.get("due_raw") != new_facts.get("due_raw"):
                     attributes["deadline_change"] = {
                         "from": old_facts.get("due_raw"),
@@ -86,8 +106,8 @@ async def store_page(database: Database, page: DocumentRecord) -> str:
                 id=uuid4(),
                 document_id=document.id,
                 revision_key=revision_key,
-                content_hash=page.content_hash,
-                raw_content=page.raw_content,
+                content_hash=content_hash,
+                raw_content=raw_content,
                 content_text=page.text,
                 fetched_at=page.fetched_at,
                 attributes=attributes,
