@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from telethon import errors
 
@@ -194,8 +194,13 @@ async def telegram_context(database: Database, settings: Settings) -> tuple[list
                 select(SourceDocument, DocumentVersion)
                 .join(DocumentVersion, SourceDocument.current_version_id == DocumentVersion.id)
                 .where(
-                    SourceDocument.source_id == "telegram",
-                    DocumentVersion.attributes["chat_id"].as_string().in_(active_ids),
+                    # Сообщения личного аккаунта — только выбранных чатов; каналы и бот
+                    # уже ограничены списком каналов и группами, куда добавлен бот.
+                    or_(
+                        (SourceDocument.source_id == "telegram")
+                        & DocumentVersion.attributes["chat_id"].as_string().in_(active_ids),
+                        SourceDocument.source_id.in_(["telegram_channels", "telegram_bot"]),
+                    ),
                     DocumentVersion.attributes["published_at"].as_string() >= cutoff,
                 )
                 .order_by(

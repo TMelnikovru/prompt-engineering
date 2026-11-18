@@ -40,7 +40,9 @@ async def analyze_pending(database: Database, settings: Settings, limit: int) ->
                 # Структурированные сроки DSBA/SmartLMS модели не нужны;
                 # Telegram анализируется целой перепиской.
                 .where(
-                    IngestionSource.kind.not_in(["dsba", "smartlms", "telegram"]),
+                    IngestionSource.kind.not_in(
+                        ["dsba", "smartlms", "telegram", "telegram_channels", "telegram_bot"]
+                    ),
                     SourceDocument.is_active.is_(True),
                 )
                 .order_by(SourceDocument.title, SourceDocument.id)

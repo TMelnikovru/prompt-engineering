@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     telegram_pdf_max_bytes: int = Field(default=8_000_000, ge=1000, le=20_000_000)
     telegram_pdf_max_pages: int = Field(default=30, ge=1, le=200)
     telegram_pdf_max_chars: int = Field(default=40000, ge=1000, le=200000)
+    # Открытые каналы через t.me/s/<канал>: JSON-массив, например ["@dsba_hse"].
+    telegram_public_channels: list[str] = Field(default_factory=list, max_length=50)
+    telegram_public_pages: int = Field(default=3, ge=1, le=20)
+    telegram_public_interval_seconds: int = Field(default=600, ge=60)
+    # Бот @BotFather: группы, куда он добавлен, напоминания и /plan владельцу.
+    telegram_bot_token: SecretStr | None = Field(default=None, repr=False)
+    telegram_bot_owner: str | None = None
+    telegram_reminder_hours: list[int] = Field(default_factory=lambda: [24, 3], max_length=5)
+    telegram_reminder_dsba_source: str | None = Field(default=None, pattern=r"^dsba:[0-9a-f]{32}$")
+    telegram_plan_minutes: int = Field(default=120, ge=15, le=720)
     openai_api_key: SecretStr | None = Field(
         default=None, validation_alias="OPENAI_API_KEY", repr=False
     )

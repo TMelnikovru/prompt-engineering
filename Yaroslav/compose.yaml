@@ -49,6 +49,11 @@ services:
       HSE_DSBA_MAX_PROFILES: ${HSE_DSBA_MAX_PROFILES:-}
       HSE_DSBA_INTERVAL_SECONDS: ${HSE_DSBA_INTERVAL_SECONDS:-}
       HSE_FAKE_DATA_ENABLED: ${HSE_FAKE_DATA_ENABLED:-false}
+      HSE_TELEGRAM_PUBLIC_CHANNELS: ${HSE_TELEGRAM_PUBLIC_CHANNELS:-}
+      HSE_TELEGRAM_BOT_TOKEN: ${HSE_TELEGRAM_BOT_TOKEN:-}
+      HSE_TELEGRAM_BOT_OWNER: ${HSE_TELEGRAM_BOT_OWNER:-}
+      HSE_TELEGRAM_REMINDER_HOURS: ${HSE_TELEGRAM_REMINDER_HOURS:-}
+      HSE_TELEGRAM_REMINDER_DSBA_SOURCE: ${HSE_TELEGRAM_REMINDER_DSBA_SOURCE:-}
       HSE_SMARTLMS_BASE_URL: ${HSE_SMARTLMS_BASE_URL:-}
       HSE_SMARTLMS_TOKEN: ${HSE_SMARTLMS_TOKEN:-}
       HSE_SMARTLMS_CALENDAR_URL: ${HSE_SMARTLMS_CALENDAR_URL:-}
@@ -113,6 +118,17 @@ services:
     restart: unless-stopped
     init: true
     command: [python, -m, app.dsba, worker]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *app-logging
+
+  telegram-bot:
+    image: ${HSE_APP_IMAGE:-hse-study-agent:local}
+    restart: unless-stopped
+    init: true
+    command: [python, -m, app.telegram_bot, worker]
     environment: *app-environment
     depends_on:
       postgres:

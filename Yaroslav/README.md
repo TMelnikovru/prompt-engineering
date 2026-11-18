@@ -10,6 +10,7 @@
 > - SmartLMS (edu.hse.ru): дедлайны по личной ссылке экспорта календаря: [docs/SMARTLMS.md](docs/SMARTLMS.md).
 > - План дня по реальным заданиям (DSBA + SmartLMS): сроки, доступное время, отметки «Готово».
 > - Telegram из ветки `telegram` перенесён сюда: [docs/TELEGRAM.md](docs/TELEGRAM.md).
+> - Telegram-бот (группы, напоминания о сроках, `/plan`) и открытые каналы через t.me/s: [docs/TELEGRAM_BOT.md](docs/TELEGRAM_BOT.md).
 > - Работает на Windows: локальный PostgreSQL и `python -m app.serve` (см. docs/SMARTLMS.md),
 >   все тесты, включая интеграционные с PostgreSQL, проходят.
 

@@ -103,7 +103,8 @@ def operator_error(request: Request, token: str | None) -> JSONResponse | None:
 
 # Личная переписка: записи и состояние этих источников видны только оператору.
 # Публичные источники (вики ФКН, DSBA) читаются без ключа, как их использует сайт.
-PRIVATE_SOURCE_IDS = frozenset({"telegram"})
+# Личные источники: записи доступны только с X-Ingestion-Token. Открытые каналы публичны.
+PRIVATE_SOURCE_IDS = frozenset({"telegram", "telegram_bot", "mail", "smartlms"})
 
 
 @router.get(
