@@ -7,7 +7,11 @@
 > - «Фейк-данные» по умолчанию выключены (`HSE_FAKE_DATA_ENABLED=false`): на экране входа
 >   только DSBA Online, `data_source=fake` возвращает 404, а `HSE_DEMO_MODE` по умолчанию `false`.
 > - Коннектор почты ВШЭ (Яндекс 360, IMAP; для студентов ВШЭ OAuth запрещён): [docs/MAIL.md](docs/MAIL.md).
-> - SmartLMS (edu.hse.ru): дедлайны по личному ключу Moodle: [docs/SMARTLMS.md](docs/SMARTLMS.md).
+> - SmartLMS (edu.hse.ru): дедлайны по личной ссылке экспорта календаря: [docs/SMARTLMS.md](docs/SMARTLMS.md).
+> - План дня по реальным заданиям (DSBA + SmartLMS): сроки, доступное время, отметки «Готово».
+> - Telegram из ветки `telegram` перенесён сюда: [docs/TELEGRAM.md](docs/TELEGRAM.md).
+> - Работает на Windows: локальный PostgreSQL и `python -m app.serve` (см. docs/SMARTLMS.md),
+>   все тесты, включая интеграционные с PostgreSQL, проходят.
 
 Прототип учебного агента для команды хакатона: **источники → задания и материалы → план дня**.
 Python 3.12+, FastAPI, Jinja2 и обычные HTML/CSS/JS. Для фронтенда не нужны
